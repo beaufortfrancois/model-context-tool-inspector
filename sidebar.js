@@ -40,6 +40,8 @@ chrome.runtime.onMessage.addListener(({ message, tools, url }) => {
   statusDiv.textContent = message;
   statusDiv.hidden = !message;
 
+  const haveNewTools = JSON.stringify(currentTools) !== JSON.stringify(tools);
+
   currentTools = tools;
 
   if (!tools || tools.length === 0) {
@@ -86,7 +88,7 @@ chrome.runtime.onMessage.addListener(({ message, tools, url }) => {
   });
   updateDefaultValueForInputArgs();
 
-  suggestUserPrompt();
+  if (haveNewTools) suggestUserPrompt();
 });
 
 tbody.ondblclick = () => {
