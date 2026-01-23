@@ -10,6 +10,7 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "update_url": "https://clients2.google.com/service/update2/crx",
   "action": {},
   "background": {
     "service_worker": "background.js"
