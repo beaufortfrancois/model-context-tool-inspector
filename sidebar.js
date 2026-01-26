@@ -32,7 +32,10 @@ let currentTools;
 let userPromptPendingId = 0;
 
 // Listen for the results coming back from content.js
-chrome.runtime.onMessage.addListener(({ message, tools, url }) => {
+chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (sender.tab.id !== tab.id) return;
+
   tbody.innerHTML = '';
   thead.innerHTML = '';
   toolNames.innerHTML = '';
