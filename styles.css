@@ -192,3 +192,23 @@ tbody pre {
 tbody.prettify pre {
   white-space: pre-wrap;
 }
+
+.collapsible-header {
+  cursor: pointer;
+  display: flex;
+  user-select: none;
+}
+
+.collapsible-header::after {
+  content: '▾';
+  transition: transform 0.2s ease;
+  margin-left: 6px;
+}
+
+.collapsible-header.collapsed::after {
+  transform: rotate(-90deg);
+}
+
+.is-hidden {
+  display: none;
+}

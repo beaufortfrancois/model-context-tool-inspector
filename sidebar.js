@@ -405,3 +405,13 @@ function waitForPageLoad(tabId) {
     chrome.tabs.onUpdated.addListener(listener);
   });
 }
+
+document.querySelectorAll('.collapsible-header').forEach((header) => {
+  header.addEventListener('click', () => {
+    header.classList.toggle('collapsed');
+    const content = header.nextElementSibling;
+    if (content?.classList.contains('section-content')) {
+      content.classList.toggle('is-hidden');
+    }
+  });
+});
