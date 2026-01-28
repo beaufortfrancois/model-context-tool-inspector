@@ -67,6 +67,9 @@ button:hover {
   max-height: 400px;
   display: block;
 }
+.table-container:has(tbody.prettify) {
+  max-height: fit-content;
+}
 
 table {
   width: 100%;
