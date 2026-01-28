@@ -260,7 +260,16 @@ executeBtn.onclick = async () => {
   const name = toolNames.selectedOptions[0].value;
   const inputArgs = inputArgsText.value;
   const result = await chrome.tabs.sendMessage(tab.id, { action: 'EXECUTE_TOOL', name, inputArgs });
-  toolResults.textContent = `${result}\n`;
+  if (result !== null) {
+    toolResults.textContent = result;
+    return;
+  }
+  // A navigation was triggered. The result will be on the next document.
+  // TODO: Handle case where a new tab is opened.
+  await waitForPageLoad(tab.id);
+  toolResults.textContent = await chrome.tabs.sendMessage(tab.id, {
+    action: 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT',
+  });
 };
 
 toolNames.onchange = updateDefaultValueForInputArgs;
@@ -368,4 +377,16 @@ function generateTemplateFromSchema(schema) {
       // Fallback for "any" types or undefined types
       return {};
   }
+}
+
+function waitForPageLoad(tabId) {
+  return new Promise((resolve) => {
+    const listener = (updatedTabId, changeInfo) => {
+      if (updatedTabId === tabId && changeInfo.status === 'complete') {
+        chrome.tabs.onUpdated.removeListener(listener);
+        resolve();
+      }
+    };
+    chrome.tabs.onUpdated.addListener(listener);
+  });
 }
