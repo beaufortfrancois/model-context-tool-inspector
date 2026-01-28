@@ -145,7 +145,7 @@ async function suggestUserPrompt() {
       '2. **Flight Search:** Use **FUTURE** dates only (e.g., "next week," "February 15th").',
       '3. **Accommodation Search:** Use **FUTURE** dates only (e.g., "next weekend," "March 15th").',
       '**Task:**',
-      'Generate one natural user query for a random tool below.',
+      'Generate one natural user query for a range of tools below, ideally chaining them together.',
       'Ensure the date makes sense relative to today.',
       'Output the query text only.',
       '**Tools:**',
