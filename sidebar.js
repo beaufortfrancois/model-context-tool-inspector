@@ -395,6 +395,12 @@ function generateTemplateFromSchema(schema) {
       if (schema.format === 'date-time') {
         return new Date().toISOString();
       }
+      if (schema.format === 'time') {
+        return new Date().toISOString().substring(11,16);
+      }
+      if (schema.format === 'tel') {
+        return '123-456-7890';
+      }
       if (schema.format === 'email') {
         return 'user@example.com';
       }
