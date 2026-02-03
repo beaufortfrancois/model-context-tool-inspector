@@ -130,6 +130,10 @@ textarea, input {
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
+#userPromptText {
+  font-family: inherit;
+}
+
 /* Focus states matching the button blue */
 select:focus,
 textarea:focus,
