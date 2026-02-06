@@ -23,7 +23,9 @@ chrome.runtime.onInstalled.addListener(async () => {
 chrome.tabs.onActivated.addListener(({ tabId }) => updateBadge(tabId));
 chrome.tabs.onUpdated.addListener((tabId) => updateBadge(tabId));
 
-function updateBadge(tabId) {
+async function updateBadge(tabId) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab.id !== tabId) return;
   chrome.action.setBadgeText({ text: '', tabId });
   chrome.action.setBadgeBackgroundColor({ color: '#2563eb' });
   chrome.tabs.sendMessage(tabId, { action: 'LIST_TOOLS' }).catch(({ message }) => {
