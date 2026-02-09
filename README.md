@@ -8,6 +8,14 @@ A Chrome Extension that allows developers to inspect, monitor, and execute tools
 
 ## Installation
 
+You can install this extension either directly from the Chrome Web Store or manually from the source code.
+
+### Option 1: Chrome Web Store (recommended)
+
+Install the extension directly via the [Chrome Web Store](https://chromewebstore.google.com/detail/model-context-tool-inspec/gbpdfapgefenggkahomfgkhfehlcenpd).
+
+### Option 2: Install from source
+
 1.  **Download the Source:**
     Clone this repository or download the source files into a directory.
 
