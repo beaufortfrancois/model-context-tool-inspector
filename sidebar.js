@@ -448,18 +448,49 @@ function generateTemplateFromSchema(schema) {
 			if (schema.format === "date") {
 				return new Date().toISOString().substring(0, 10);
 			}
-			if (schema.format === "date-time") {
-				return new Date().toISOString();
+			// yyyy-MM-ddThh:mm:ss.SSS
+			if (
+				schema.format ===
+				"^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}T([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9](\\.[0-9]{1,3})?)?$"
+			) {
+				return new Date().toISOString().substring(0, 23);
 			}
+			// yyyy-MM-ddThh:mm:ss
+			if (
+				schema.format ===
+				"^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}T([01][0-9]|2[0-3]):[0-5][0-9]$"
+			) {
+				return new Date().toISOString().substring(0, 19);
+			}
+			// yyyy-MM-ddThh:mm
+			if (
+				schema.format ===
+				"^[0-9]{4}-(0[1-9]|1[0-2])-[0-9]{2}T([01][0-9]|2[0-3])$"
+			) {
+				return new Date().toISOString().substring(0, 16);
+			}
+			// yyyy-MM
+			if (schema.format === "^[0-9]{4}-(0[1-9]|1[0-2])$") {
+				return new Date().toISOString().substring(0, 7);
+			}
+			// yyyy-Www
+			if (schema.format === "^[0-9]{4}-W(0[1-9]|[1-4][0-9]|5[0-3])$") {
+				return `${new Date().toISOString().substring(0, 4)}-W01`;
+			}
+			// HH:mm:ss.SSS
 			if (
 				schema.format ===
 				"^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9](\\.[0-9]{1,3})?)?$"
 			) {
 				return new Date().toISOString().substring(11, 23);
 			}
-			if (schema.format === "^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$") {
+			// HH:mm:ss
+			if (
+				schema.format === "^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$"
+			) {
 				return new Date().toISOString().substring(11, 19);
 			}
+			// HH:mm
 			if (schema.format === "^([01][0-9]|2[0-3]):[0-5][0-9]$") {
 				return new Date().toISOString().substring(11, 16);
 			}
