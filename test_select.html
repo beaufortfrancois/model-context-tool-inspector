@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test</title></head>
+<body>
+<select id="test">
+  <option value="a">A</option>
+  <option value="b">B</option>
+</select>
+<script>
+const select = document.getElementById('test');
+console.log('Initial value:', select.value);
+select.value = undefined;
+console.log('After setting to undefined:', select.value);
+select.value = null;
+console.log('After setting to null:', select.value);
+select.value = 'gemini-2.5-flash';
+console.log('After setting to valid value:', select.value);
+</script>
+</body>
+</html>

@@ -152,7 +152,7 @@ async function initGenAI() {
   localStorage.model ??= env?.model || 'gemini-2.5-flash';
   
   // Set the model selector to the saved value
-  modelSelect.value = localStorage.model;
+  if (modelSelect) modelSelect.value = localStorage.model;
   
   genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
   promptBtn.disabled = !localStorage.apiKey;
