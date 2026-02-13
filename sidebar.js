@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GoogleGenAI } from './js-genai.js';
+import { GeminiProvider } from './gemini-provider.js';
+import { OllamaProvider } from './ollama-provider.js';
 
 const statusDiv = document.getElementById('status');
 const tbody = document.getElementById('tableBody');
@@ -22,6 +23,11 @@ const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 const modelSelect = document.getElementById('modelSelect');
+const providerSelect = document.getElementById('providerSelect');
+const geminiConfig = document.getElementById('geminiConfig');
+const ollamaConfig = document.getElementById('ollamaConfig');
+const ollamaUrl = document.getElementById('ollamaUrl');
+const saveOllamaBtn = document.getElementById('saveOllamaBtn');
 
 // Inject content script first.
 (async () => {
@@ -138,40 +144,22 @@ copyAsJSON.onclick = async () => {
 
 // Interact with the page
 
-let genAI, chat;
+let aiProvider, chat;
 
 const envModulePromise = import('./.env.json', { with: { type: 'json' } });
 
 async function loadAvailableModels() {
-  if (!genAI) return;
+  if (!aiProvider) return;
 
   // Show loading state
   modelSelect.disabled = true;
   modelSelect.innerHTML = '<option>Loading models...</option>';
 
   try {
-    // Fetch available models from the API
-    const response = await genAI.models.list();
-    const models = [];
-    let totalModels = 0;
-    let skippedModels = 0;
+    // Fetch available models from the provider
+    const models = await aiProvider.listModels();
 
-    for await (const model of response) {
-      totalModels++;
-      console.log('Model found:', model.name, 'supportedActions:', model.supportedActions);
-
-      // Only include models that support generateContent
-      if (model.supportedActions?.includes('generateContent')) {
-        models.push({
-          name: model.name.replace('models/', ''),
-          displayName: model.displayName || model.name.replace('models/', '')
-        });
-      } else {
-        skippedModels++;
-      }
-    }
-
-    console.log(`Total models: ${totalModels}, Filtered models: ${models.length}, Skipped: ${skippedModels}`);
+    console.log(`Found ${models.length} models from ${aiProvider.getName()}`);
 
     // Clear loading message
     modelSelect.innerHTML = '';
@@ -196,15 +184,19 @@ async function loadAvailableModels() {
         modelSelect.value = models[0].name;
       }
     } else {
-      // No models available - add fallback
-      console.warn('No models with generateContent support found. Using fallback list.');
-      modelSelect.innerHTML = `
-        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-      `;
+      // No models available - add fallback for Gemini
+      if (aiProvider.getName() === 'gemini') {
+        console.warn('No models with generateContent support found. Using fallback list.');
+        modelSelect.innerHTML = `
+          <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+          <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+          <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+          <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+        `;
+      } else {
+        modelSelect.innerHTML = '<option value="">No models found. Is Ollama running?</option>';
+      }
       if (localStorage.model) {
         modelSelect.value = localStorage.model;
       }
@@ -212,13 +204,17 @@ async function loadAvailableModels() {
   } catch (error) {
     console.error('Failed to load models:', error);
     // Restore default hardcoded models if API call fails
-    modelSelect.innerHTML = `
-      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-      <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-    `;
+    if (aiProvider.getName() === 'gemini') {
+      modelSelect.innerHTML = `
+        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+      `;
+    } else {
+      modelSelect.innerHTML = '<option value="">Error loading models. Check Ollama URL.</option>';
+    }
     if (localStorage.model) {
       modelSelect.value = localStorage.model;
     }
@@ -235,26 +231,60 @@ async function initGenAI() {
   } catch {}
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
   localStorage.model ??= env?.model || 'gemini-2.5-flash';
+  localStorage.provider ??= 'gemini';
+  localStorage.ollamaUrl ??= 'http://localhost:11434';
+
+  // Set the provider selector to the saved value
+  if (providerSelect) providerSelect.value = localStorage.provider;
+
+  // Update UI based on provider
+  updateProviderUI();
 
   // Set the model selector to the saved value
   if (modelSelect) modelSelect.value = localStorage.model;
 
-  genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
-  promptBtn.disabled = !localStorage.apiKey;
-  resetBtn.disabled = !localStorage.apiKey;
+  // Initialize the AI provider based on selected provider
+  const provider = localStorage.provider;
+  if (provider === 'gemini') {
+    aiProvider = localStorage.apiKey ? new GeminiProvider({ apiKey: localStorage.apiKey }) : undefined;
+  } else if (provider === 'ollama') {
+    aiProvider = new OllamaProvider({ 
+      baseUrl: localStorage.ollamaUrl,
+      model: localStorage.model
+    });
+  }
 
-  // Load available models if API key is set
-  if (genAI) {
+  // Update button states
+  const hasProvider = !!aiProvider;
+  promptBtn.disabled = !hasProvider;
+  resetBtn.disabled = !hasProvider;
+
+  // Load available models if provider is set
+  if (aiProvider) {
     await loadAvailableModels();
   }
 }
+
+function updateProviderUI() {
+  const provider = localStorage.provider;
+  
+  if (provider === 'gemini') {
+    geminiConfig.style.display = 'block';
+    ollamaConfig.style.display = 'none';
+  } else if (provider === 'ollama') {
+    geminiConfig.style.display = 'none';
+    ollamaConfig.style.display = 'block';
+    ollamaUrl.value = localStorage.ollamaUrl || 'http://localhost:11434';
+  }
+}
+
 initGenAI();
 
 async function suggestUserPrompt() {
-  if (currentTools.length == 0 || !genAI || userPromptText.value !== lastSuggestedUserPrompt)
+  if (currentTools.length == 0 || !aiProvider || userPromptText.value !== lastSuggestedUserPrompt)
     return;
   const userPromptId = ++userPromptPendingId;
-  const response = await genAI.models.generateContent({
+  const response = await aiProvider.generateContent({
     model: localStorage.model,
     contents: [
       '**Context:**',
@@ -302,7 +332,7 @@ let trace = [];
 async function promptAI() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  chat ??= genAI.chats.create({ model: localStorage.model });
+  chat ??= aiProvider.createChat({ model: localStorage.model });
 
   const message = userPromptText.value;
   userPromptText.value = '';
@@ -379,6 +409,31 @@ modelSelect.onchange = () => {
   chat = undefined;
   trace = [];
   promptResults.textContent = '';
+  suggestUserPrompt();
+};
+
+providerSelect.onchange = async () => {
+  localStorage.provider = providerSelect.value;
+  updateProviderUI();
+  
+  // Reset chat and reinitialize provider
+  chat = undefined;
+  trace = [];
+  promptResults.textContent = '';
+  
+  await initGenAI();
+  suggestUserPrompt();
+};
+
+saveOllamaBtn.onclick = async () => {
+  localStorage.ollamaUrl = ollamaUrl.value || 'http://localhost:11434';
+  
+  // Reinitialize provider with new URL
+  chat = undefined;
+  trace = [];
+  promptResults.textContent = '';
+  
+  await initGenAI();
   suggestUserPrompt();
 };
 
