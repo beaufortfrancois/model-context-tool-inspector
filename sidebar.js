@@ -21,6 +21,7 @@ const traceBtn = document.getElementById('traceBtn');
 const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
+const modelSelect = document.getElementById('modelSelect');
 
 // Inject content script first.
 (async () => {
@@ -141,6 +142,91 @@ let genAI, chat;
 
 const envModulePromise = import('./.env.json', { with: { type: 'json' } });
 
+async function loadAvailableModels() {
+  if (!genAI) return;
+
+  // Show loading state
+  modelSelect.disabled = true;
+  modelSelect.innerHTML = '<option>Loading models...</option>';
+
+  try {
+    // Fetch available models from the API
+    const response = await genAI.models.list();
+    const models = [];
+    let totalModels = 0;
+    let skippedModels = 0;
+
+    for await (const model of response) {
+      totalModels++;
+      console.log('Model found:', model.name, 'supportedActions:', model.supportedActions);
+
+      // Only include models that support generateContent
+      if (model.supportedActions?.includes('generateContent')) {
+        models.push({
+          name: model.name.replace('models/', ''),
+          displayName: model.displayName || model.name.replace('models/', '')
+        });
+      } else {
+        skippedModels++;
+      }
+    }
+
+    console.log(`Total models: ${totalModels}, Filtered models: ${models.length}, Skipped: ${skippedModels}`);
+
+    // Clear loading message
+    modelSelect.innerHTML = '';
+
+    if (models.length > 0) {
+      // Save the current selection
+      const currentModel = localStorage.model;
+
+      // Add the fetched models
+      models.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.name;
+        option.textContent = model.displayName;
+        modelSelect.appendChild(option);
+      });
+
+      // Restore the previous selection if it's still available, otherwise use the first model
+      if (models.some(m => m.name === currentModel)) {
+        modelSelect.value = currentModel;
+      } else {
+        localStorage.model = models[0].name;
+        modelSelect.value = models[0].name;
+      }
+    } else {
+      // No models available - add fallback
+      console.warn('No models with generateContent support found. Using fallback list.');
+      modelSelect.innerHTML = `
+        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+        <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+        <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+      `;
+      if (localStorage.model) {
+        modelSelect.value = localStorage.model;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load models:', error);
+    // Restore default hardcoded models if API call fails
+    modelSelect.innerHTML = `
+      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+      <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+      <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+      <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+      <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+    `;
+    if (localStorage.model) {
+      modelSelect.value = localStorage.model;
+    }
+  } finally {
+    modelSelect.disabled = false;
+  }
+}
+
 async function initGenAI() {
   let env;
   try {
@@ -149,9 +235,18 @@ async function initGenAI() {
   } catch {}
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
   localStorage.model ??= env?.model || 'gemini-2.5-flash';
+
+  // Set the model selector to the saved value
+  if (modelSelect) modelSelect.value = localStorage.model;
+
   genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
   promptBtn.disabled = !localStorage.apiKey;
   resetBtn.disabled = !localStorage.apiKey;
+
+  // Load available models if API key is set
+  if (genAI) {
+    await loadAvailableModels();
+  }
 }
 initGenAI();
 
@@ -275,6 +370,15 @@ apiKeyBtn.onclick = async () => {
   if (apiKey == null) return;
   localStorage.apiKey = apiKey;
   await initGenAI();
+  suggestUserPrompt();
+};
+
+modelSelect.onchange = () => {
+  localStorage.model = modelSelect.value;
+  // Reset the chat when model changes to avoid mixing contexts
+  chat = undefined;
+  trace = [];
+  promptResults.textContent = '';
   suggestUserPrompt();
 };
 

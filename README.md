@@ -49,6 +49,18 @@ Install the extension directly via the [Chrome Web Store](https://chromewebstore
         * *Note:* The input must be valid JSON (e.g., `{"text": "hello world"}`).
     * Click **Execute Tool**.
 
+5.  **Interact with AI Models:**
+    * **Set API Key:** Click **Set Gemini API key** to configure your Google AI API key.
+    * **Select Model:** The model dropdown will automatically populate with available models from the Gemini API that support content generation. If the API call fails, it falls back to a default list of models.
+    * **Send Prompts:** Enter a prompt and click **Send** to interact with the selected model using the available tools on the page.
+
+## Features
+
+* **Dynamic Model Loading:** The extension automatically fetches and displays only the Gemini models that support `generateContent` for your API key, ensuring you always see the most up-to-date and compatible model options.
+* **Tool Inspection:** View all Model Context tools available on the current page.
+* **Tool Execution:** Manually execute tools with custom arguments.
+* **AI Integration:** Use Gemini models to interact with page tools through natural language prompts.
+
 ## Disclaimer
 
 This is not an officially supported Google product. This project is not
