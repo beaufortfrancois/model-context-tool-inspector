@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Model Context Tool Inspector",
   "description": "Inspect, monitor, and execute WebMCP tools manually or with Gemini",
-  "version": "1.5",
+  "version": "1.6",
   "permissions": ["sidePanel", "activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
   "update_url": "https://clients2.google.com/service/update2/crx",
