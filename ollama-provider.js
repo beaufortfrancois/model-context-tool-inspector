@@ -53,7 +53,16 @@ export class OllamaProvider extends AIProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.statusText}`);
+      let errorMessage = `Ollama API error: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage += ` - ${errorData.error}`;
+        }
+      } catch (e) {
+        // Response body is not JSON, ignore
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
@@ -88,7 +97,7 @@ class OllamaChat extends Chat {
         const fr = item.functionResponse;
         return `Tool "${fr.name}" result: ${JSON.stringify(fr.response)}`;
       }).join('\n');
-      
+
       this.messages.push({
         role: 'user',
         content: toolResponseText
@@ -104,7 +113,7 @@ class OllamaChat extends Chat {
     // Build system prompt with tools information
     let systemPrompt = '';
     if (config?.systemInstruction) {
-      systemPrompt = Array.isArray(config.systemInstruction) 
+      systemPrompt = Array.isArray(config.systemInstruction)
         ? config.systemInstruction.join('\n')
         : config.systemInstruction;
     }
@@ -114,7 +123,7 @@ class OllamaChat extends Chat {
       const toolsInfo = config.tools[0].functionDeclarations.map(tool => {
         return `Tool: ${tool.name}\nDescription: ${tool.description}\nParameters: ${JSON.stringify(tool.parametersJsonSchema)}`;
       }).join('\n\n');
-      
+
       systemPrompt += `\n\nAvailable tools:\n${toolsInfo}\n\n`;
       systemPrompt += 'To use a tool, respond with JSON in this format:\n';
       systemPrompt += '{"functionCalls": [{"name": "tool_name", "args": {...}}]}\n';
@@ -144,7 +153,16 @@ class OllamaChat extends Chat {
     });
 
     if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.statusText}`);
+      let errorMessage = `Ollama API error: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage += ` - ${errorData.error}`;
+        }
+      } catch (e) {
+        // Response body is not JSON, ignore
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
@@ -160,7 +178,7 @@ class OllamaChat extends Chat {
     let functionCalls = [];
     try {
       // Look for JSON in the response
-      const jsonMatch = assistantMessage.match(/\{[\s\S]*"functionCalls"[\s\S]*\}/);
+      const jsonMatch = assistantMessage.match(/\{[\s\S]*"functionCalls"[\s\S]*}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
         if (parsed.functionCalls && Array.isArray(parsed.functionCalls)) {

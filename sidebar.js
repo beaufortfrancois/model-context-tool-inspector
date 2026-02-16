@@ -27,7 +27,9 @@ const providerSelect = document.getElementById('providerSelect');
 const geminiConfig = document.getElementById('geminiConfig');
 const ollamaConfig = document.getElementById('ollamaConfig');
 const ollamaUrl = document.getElementById('ollamaUrl');
+const testOllamaBtn = document.getElementById('testOllamaBtn');
 const saveOllamaBtn = document.getElementById('saveOllamaBtn');
+const ollamaTestResult = document.getElementById('ollamaTestResult');
 
 // Inject content script first.
 (async () => {
@@ -248,7 +250,7 @@ async function initGenAI() {
   if (provider === 'gemini') {
     aiProvider = localStorage.apiKey ? new GeminiProvider({ apiKey: localStorage.apiKey }) : undefined;
   } else if (provider === 'ollama') {
-    aiProvider = new OllamaProvider({ 
+    aiProvider = new OllamaProvider({
       baseUrl: localStorage.ollamaUrl,
       model: localStorage.model
     });
@@ -267,7 +269,7 @@ async function initGenAI() {
 
 function updateProviderUI() {
   const provider = localStorage.provider;
-  
+
   if (provider === 'gemini') {
     geminiConfig.style.display = 'block';
     ollamaConfig.style.display = 'none';
@@ -415,26 +417,85 @@ modelSelect.onchange = () => {
 providerSelect.onchange = async () => {
   localStorage.provider = providerSelect.value;
   updateProviderUI();
-  
+
   // Reset chat and reinitialize provider
   chat = undefined;
   trace = [];
   promptResults.textContent = '';
-  
+
   await initGenAI();
   suggestUserPrompt();
 };
 
 saveOllamaBtn.onclick = async () => {
   localStorage.ollamaUrl = ollamaUrl.value || 'http://localhost:11434';
-  
+
   // Reinitialize provider with new URL
   chat = undefined;
   trace = [];
   promptResults.textContent = '';
-  
+
   await initGenAI();
   suggestUserPrompt();
+};
+
+testOllamaBtn.onclick = async () => {
+  const url = ollamaUrl.value || 'http://localhost:11434';
+  ollamaTestResult.style.display = 'block';
+  ollamaTestResult.textContent = '🔄 Testing connection...';
+  ollamaTestResult.style.backgroundColor = '#e0e7ff';
+  ollamaTestResult.style.color = '#3730a3';
+
+  try {
+    // Test 1: Check if Ollama is accessible
+    const tagsResponse = await fetch(`${url}/api/tags`);
+    if (!tagsResponse.ok) {
+      throw new Error(`Failed to fetch models: ${tagsResponse.status} ${tagsResponse.statusText}`);
+    }
+
+    const tagsData = await tagsResponse.json();
+    const models = tagsData.models || [];
+
+    if (models.length === 0) {
+      ollamaTestResult.textContent = '⚠️ Connection successful, but no models found. Please pull a model first (e.g., ollama pull llama2)';
+      ollamaTestResult.style.backgroundColor = '#fef3c7';
+      ollamaTestResult.style.color = '#92400e';
+      return;
+    }
+
+    // Test 2: Try a simple chat request
+    const testModel = models[0].name;
+    const chatResponse = await fetch(`${url}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: testModel,
+        messages: [{ role: 'user', content: 'Hi' }],
+        stream: false
+      })
+    });
+
+    if (!chatResponse.ok) {
+      let errorMsg = `${chatResponse.status} ${chatResponse.statusText}`;
+      try {
+        const errorData = await chatResponse.json();
+        if (errorData.error) {
+          errorMsg += ` - ${errorData.error}`;
+        }
+      } catch (e) {
+        // Ignore
+      }
+      throw new Error(`Chat API error: ${errorMsg}`);
+    }
+
+    ollamaTestResult.textContent = `✅ Connection successful! Found ${models.length} model(s): ${models.map(m => m.name).join(', ')}`;
+    ollamaTestResult.style.backgroundColor = '#dcfce7';
+    ollamaTestResult.style.color = '#166534';
+  } catch (error) {
+    ollamaTestResult.textContent = `❌ Connection failed: ${error.message}`;
+    ollamaTestResult.style.backgroundColor = '#fee2e2';
+    ollamaTestResult.style.color = '#991b1b';
+  }
 };
 
 traceBtn.onclick = async () => {
