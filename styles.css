@@ -221,6 +221,13 @@ tbody.prettify pre {
   display: none;
 }
 
+.provider-config {
+  background-color: #f8f9fa;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #121212;
@@ -312,5 +319,9 @@ tbody.prettify pre {
 
   #status {
     color: #f87171; /* Lighter red for readability on dark */
+  }
+
+  .provider-config {
+    background-color: #1a1a1a;
   }
 }

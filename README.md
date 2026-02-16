@@ -49,6 +49,33 @@ Install the extension directly via the [Chrome Web Store](https://chromewebstore
         * *Note:* The input must be valid JSON (e.g., `{"text": "hello world"}`).
     * Click **Execute Tool**.
 
+5.  **Interact with AI Models:**
+    
+    The extension supports two AI providers:
+    
+    **Option A: Google Gemini (Cloud-based)**
+    * **Select Provider:** Choose "Google Gemini" from the AI Provider dropdown.
+    * **Set API Key:** Click **Set Gemini API key** to configure your Google AI API key.
+    * **Select Model:** The model dropdown will automatically populate with available models from the Gemini API that support content generation. If the API call fails, it falls back to a default list of models.
+    * **Send Prompts:** Enter a prompt and click **Send** to interact with the selected model using the available tools on the page.
+    
+    **Option B: Local Ollama (Privacy-focused)**
+    * **Install Ollama:** Download and install [Ollama](https://ollama.com/) on your local machine.
+    * **Start Ollama:** Run `ollama serve` or ensure the Ollama service is running.
+    * **Pull a Model:** Download a model (e.g., `ollama pull llama2` or `ollama pull mistral`).
+    * **Select Provider:** Choose "Local Ollama" from the AI Provider dropdown in the extension.
+    * **Configure URL:** Enter your Ollama URL (default: `http://localhost:11434`) and click **Save Ollama Settings**.
+    * **Select Model:** Choose from your locally installed Ollama models in the model dropdown.
+    * **Send Prompts:** Enter a prompt and click **Send** to interact with the selected model using the available tools on the page.
+
+## Features
+
+* **Multiple AI Providers:** Choose between Google Gemini (cloud-based) or Local Ollama (privacy-focused) for AI interactions.
+* **Dynamic Model Loading:** The extension automatically fetches and displays available models from your selected AI provider.
+* **Tool Inspection:** View all Model Context tools available on the current page.
+* **Tool Execution:** Manually execute tools with custom arguments.
+* **AI Integration:** Use AI models to interact with page tools through natural language prompts.
+
 ## Disclaimer
 
 This is not an officially supported Google product. This project is not

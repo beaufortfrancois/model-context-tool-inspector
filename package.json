@@ -1,8 +1,11 @@
 {
   "scripts": {
-    "postinstall": "cp ./node_modules/@google/genai/dist/web/index.mjs js-genai.js && rm -rf node_modules"
+    "postinstall": "node bundle-genai.js && rm -rf node_modules"
   },
   "dependencies": {
     "@google/genai": "1.38.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
   }
 }
