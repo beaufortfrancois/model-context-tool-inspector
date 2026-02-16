@@ -282,7 +282,7 @@ async function suggestUserPrompt() {
 }
 
 userPromptText.onkeydown = (event) => {
-  if (event.key === 'Enter' && !event.shiftKey) {
+  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
     event.preventDefault();
     promptBtn.click();
   }

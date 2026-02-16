@@ -3,7 +3,7 @@
     "postinstall": "node bundle-genai.js && rm -rf node_modules"
   },
   "dependencies": {
-    "@google/genai": "^1.38.0"
+    "@google/genai": "1.38.0"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"
