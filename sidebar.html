@@ -76,12 +76,15 @@
 						</div>
 						<div class="form-group">
 							<label for="inputArgsText">Input Arguments</label>
-							<textarea
-								id="inputArgsText"
-								placeholder='e.g. {"text": "hello world"}'
-							>
+							<div class="input-args-wrapper" id="inputArgsWrapper">
+								<pre id="inputArgsDisplay" class="input-args-display" aria-hidden="true"></pre>
+								<textarea
+									id="inputArgsText"
+									placeholder='e.g. {"text": "hello world"}'
+								>
 {"text": "hello world"}</textarea
-							>
+								>
+							</div>
 						</div>
 						<div class="form-group">
 							<button id="executeBtn" class="btn-primary">Execute Tool</button>
