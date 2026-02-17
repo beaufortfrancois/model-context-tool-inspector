@@ -221,6 +221,458 @@ tbody.prettify pre {
   display: none;
 }
 
+.input-args-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.input-args-header label {
+  margin-bottom: 0;
+}
+
+.mode-switcher {
+  display: flex;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.mode-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: transparent;
+  color: #666;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.mode-btn + .mode-btn {
+  border-left: 1px solid #e5e7eb;
+}
+
+.mode-btn.active {
+  background-color: #2563eb;
+  color: #fff;
+}
+
+.mode-btn:hover:not(.active) {
+  background-color: #f3f4f6;
+}
+
+#formFields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#formFields[hidden],
+.row-execute-form .row-form-fields[hidden] {
+  display: none !important;
+}
+
+.schema-field label {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-family: monospace;
+}
+
+.required-star {
+  color: #dc2626;
+  font-weight: bold;
+}
+
+.field-description {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+}
+
+/* Color input (e.g. sauceColor) */
+input[type="color"] {
+  width: 48px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+  width: auto;
+}
+
+.checkbox-label {
+  font-size: 12px;
+  color: #666;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #888;
+  font-style: italic;
+  padding: 8px 0;
+}
+
+/* Nested object field group */
+.object-field-group {
+  border-left: 2px solid #d1d5db;
+  padding-left: 10px;
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.object-field-group .schema-field {
+  margin-bottom: 0;
+}
+
+/* Array field with +/- controls */
+.array-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.array-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.array-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.array-item input,
+.array-item select {
+  flex: 1;
+  min-width: 0;
+}
+
+.array-item input[type="checkbox"] {
+  flex: none;
+  width: auto;
+}
+
+.array-remove-btn {
+  padding: 4px 8px;
+  font-size: 14px;
+  line-height: 1;
+  background: transparent;
+  color: #dc2626;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  cursor: pointer;
+  min-width: 28px;
+  font-weight: bold;
+}
+
+.array-remove-btn:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+}
+
+.array-add-btn {
+  padding: 4px 10px;
+  font-size: 14px;
+  line-height: 1;
+  background: transparent;
+  color: #2563eb;
+  border: 1px dashed #cbd5e1;
+  border-radius: 4px;
+  cursor: pointer;
+  align-self: flex-start;
+  font-weight: bold;
+}
+
+.array-add-btn:hover {
+  background: #eff6ff;
+  border-color: #2563eb;
+}
+
+/* const and null fields */
+.const-field,
+.null-field {
+  opacity: 0.7;
+  cursor: not-allowed;
+  background: #f3f4f6;
+  font-style: italic;
+}
+
+/* Array of objects with sub-fields */
+.array-object-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.array-object-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  border-left: 2px solid #d1d5db;
+  padding-left: 8px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.array-object-item-fields {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.array-object-sub-field {
+  flex: 1 1 80px;
+  min-width: 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Complex nested fields (arrays, object groups) take full width */
+.array-object-sub-field:has(.array-field),
+.array-object-sub-field:has(.array-object-field),
+.array-object-sub-field:has(.object-field-group) {
+  flex-basis: 100%;
+}
+
+.array-object-sub-field label {
+  font-size: 10px;
+  color: #888;
+  margin-bottom: 0;
+}
+
+.array-object-sub-field input,
+.array-object-sub-field select {
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.array-object-sub-field textarea {
+  font-size: 12px;
+  min-height: 40px;
+}
+
+/* oneOf field */
+.oneof-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.oneof-select {
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 12px;
+  background: #fff;
+}
+
+.oneof-sub-input {
+  padding-left: 8px;
+  border-left: 2px solid #d1d5db;
+}
+
+/* Execute column and row-detail slide-in form */
+.row-execute-btn {
+  font-size: 11px;
+  padding: 2px 6px;
+  min-width: 24px;
+  background-color: transparent;
+  color: #6b7280;
+  font-weight: normal;
+  border: 1px solid #e5e7eb;
+}
+.row-execute-btn:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+/* Execute form modal (centered popup) */
+.execute-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 12px;
+}
+.execute-modal-overlay.visible {
+  display: flex;
+}
+.execute-modal-box {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+  max-width: 420px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.execute-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+.execute-modal-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+}
+.execute-modal-close {
+  padding: 2px 8px;
+  font-size: 18px;
+  line-height: 1.2;
+  background: transparent;
+  color: #6b7280;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: normal;
+}
+.execute-modal-close:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+.execute-modal-content {
+  padding: 14px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+tr.row-detail td {
+  vertical-align: top;
+  padding: 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+tr.row-detail .row-detail-cell {
+  padding: 0 12px;
+  background-color: #f3f4f6;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.3s ease-out, opacity 0.2s ease;
+}
+
+tr.row-detail.row-detail-visible .row-detail-cell {
+  padding: 10px 12px;
+  max-height: 80vh;
+  opacity: 1;
+}
+
+.row-execute-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.row-execute-form .row-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row-execute-form .row-mode-switcher {
+  align-self: flex-start;
+}
+
+.row-execute-form .row-input-args {
+  width: 100%;
+  min-height: 2.5em;
+  max-height: 40vh;
+  font-size: 12px;
+  resize: none;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.row-execute-form .row-execute-result {
+  background: #222;
+  color: #fff;
+  padding: 8px;
+  border-radius: 4px;
+  max-height: 120px;
+  border: 2px solid transparent;
+  transition: border-color 0.3s ease;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+  font-size: 11px;
+}
+
+.row-execute-form .row-execute-result:empty {
+  display: none;
+}
+.row-execute-form .row-execute-result.result-success {
+  border-color: #22c55e;
+}
+.row-execute-form .row-execute-result.result-error {
+  border-color: #ef4444;
+}
+
+.row-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.row-form-reset-link {
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  background: transparent;
+  color: #9ca3af;
+  border: none;
+  cursor: pointer;
+  margin-left: auto;
+}
+.row-form-reset-link:hover {
+  color: #6b7280;
+  background: transparent;
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #121212;
@@ -312,5 +764,129 @@ tbody.prettify pre {
 
   #status {
     color: #f87171; /* Lighter red for readability on dark */
+
+  }
+
+  .mode-switcher {
+    border-color: #404040;
+  }
+
+  .mode-btn {
+    color: #a3a3a3;
+  }
+
+  .mode-btn + .mode-btn {
+    border-left-color: #404040;
+  }
+
+  .mode-btn.active {
+    background-color: #2563eb;
+    color: #fff;
+  }
+
+  .mode-btn:hover:not(.active) {
+    background-color: #262626;
+  }
+
+  .required-star {
+    color: #f87171;
+  }
+
+  .field-description {
+    color: #6b7280;
+  }
+
+  .checkbox-label {
+    color: #a3a3a3;
+  }
+
+  input[type="color"] {
+    border-color: #404040;
+  }
+
+  .form-hint {
+    color: #6b7280;
+  }
+
+  .array-remove-btn {
+    color: #f87171;
+    border-color: #404040;
+  }
+  .array-remove-btn:hover {
+    background: #371717;
+    border-color: #f87171;
+  }
+
+  .array-add-btn {
+    color: #60a5fa;
+    border-color: #404040;
+  }
+  .array-add-btn:hover {
+    background: #1e293b;
+    border-color: #60a5fa;
+  }
+
+  .const-field,
+  .null-field {
+    background: #2a2a2a;
+  }
+
+  .oneof-select {
+    background: #2a2a2a;
+    color: #e5e5e5;
+    border-color: #404040;
+  }
+
+  .oneof-sub-input {
+    border-left-color: #404040;
+  }
+
+  .array-object-item {
+    border-left-color: #404040;
+  }
+
+  .array-object-sub-field label {
+    color: #6b7280;
+  }
+
+  .row-execute-btn {
+    color: #9ca3af;
+    border-color: #404040;
+  }
+  .row-execute-btn:hover {
+    background-color: #262626;
+    color: #d4d4d4;
+    border-color: #525252;
+  }
+
+  .execute-modal-box {
+    background: #1e1e1e;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  }
+  .execute-modal-header {
+    border-bottom-color: #404040;
+  }
+  .execute-modal-title {
+    color: #e5e5e5;
+  }
+  .execute-modal-close {
+    color: #9ca3af;
+  }
+  .execute-modal-close:hover {
+    background: #262626;
+    color: #d4d4d4;
+  }
+
+  tr.row-detail .row-detail-cell {
+    background-color: #262626;
+  }
+
+  tr.row-detail td {
+    border-bottom-color: #404040;
+  }
+
+  .row-execute-form .row-execute-result {
+    background: #000;
+    border: 1px solid #333;
   }
 }
