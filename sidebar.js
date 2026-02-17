@@ -22,6 +22,8 @@ const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 
+traceBtn.disabled = true;
+
 // Inject content script first.
 (async () => {
   try {
@@ -64,14 +66,19 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
     inputArgsText.disabled = true;
     toolNames.disabled = true;
     executeBtn.disabled = true;
-    copyToClipboard.hidden = true;
+    copyToClipboard.hidden = false;
+    copyToClipboard.classList.add('copy-actions--disabled');
+    const noToolsOption = document.createElement('option');
+    noToolsOption.value = '';
+    noToolsOption.textContent = 'No tools available';
+    toolNames.appendChild(noToolsOption);
     return;
   }
 
   inputArgsText.disabled = false;
   toolNames.disabled = false;
-  executeBtn.disabled = false;
   copyToClipboard.hidden = false;
+  copyToClipboard.classList.remove('copy-actions--disabled');
 
   const keys = Object.keys(tools[0]);
   keys.forEach((key) => {
@@ -79,6 +86,11 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
     th.textContent = key;
     thead.appendChild(th);
   });
+
+  const placeholderOption = document.createElement('option');
+  placeholderOption.value = '';
+  placeholderOption.textContent = 'Select a tool...';
+  toolNames.appendChild(placeholderOption);
 
   tools.forEach((item) => {
     const row = document.createElement('tr');
@@ -100,6 +112,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
     toolNames.appendChild(option);
   });
   updateDefaultValueForInputArgs();
+  updateExecuteButtonState();
 
   if (haveNewTools) suggestUserPrompt();
 });
@@ -109,6 +122,7 @@ tbody.ondblclick = () => {
 };
 
 copyAsScriptToolConfig.onclick = async () => {
+  if (!currentTools?.length) return;
   const text = currentTools
     .map((tool) => {
       return `\
@@ -123,6 +137,7 @@ script_tools {
 };
 
 copyAsJSON.onclick = async () => {
+  if (!currentTools?.length) return;
   const tools = currentTools.map((tool) => {
     return {
       name: tool.name,
@@ -284,9 +299,10 @@ traceBtn.onclick = async () => {
 };
 
 executeBtn.onclick = async () => {
+  const name = toolNames.value;
+  if (!name) return;
   toolResults.textContent = '';
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const name = toolNames.selectedOptions[0].value;
   const inputArgs = inputArgsText.value;
   const result = await chrome.tabs.sendMessage(tab.id, { action: 'EXECUTE_TOOL', name, inputArgs });
   if (result !== null) {
@@ -301,10 +317,18 @@ executeBtn.onclick = async () => {
   });
 };
 
-toolNames.onchange = updateDefaultValueForInputArgs;
+toolNames.onchange = () => {
+  updateDefaultValueForInputArgs();
+  updateExecuteButtonState();
+};
+
+function updateExecuteButtonState() {
+  executeBtn.disabled = !currentTools?.length || !toolNames.value;
+}
 
 function updateDefaultValueForInputArgs() {
-  const inputSchema = toolNames.selectedOptions[0].dataset.inputSchema || '{}';
+  const selected = toolNames.selectedOptions[0];
+  const inputSchema = selected?.dataset?.inputSchema || '{}';
   const template = generateTemplateFromSchema(JSON.parse(inputSchema));
   inputArgsText.value = JSON.stringify(template, '', ' ');
 }
