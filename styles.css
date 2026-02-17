@@ -293,6 +293,39 @@ textarea {
 	line-height: 1.5;
 }
 
+.input-args-wrapper {
+	position: relative;
+}
+
+.input-args-wrapper .input-args-display {
+	display: block;
+	margin: 0;
+	padding: var(--space-2) var(--space-3);
+	min-height: 72px;
+	line-height: 1.5;
+	font-family: var(--font-mono);
+	font-size: 12px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-md);
+	background: var(--color-surface);
+	color: var(--color-text);
+	white-space: pre-wrap;
+	word-break: break-word;
+	cursor: text;
+}
+
+.input-args-wrapper #inputArgsText {
+	display: none;
+}
+
+.input-args-wrapper.input-args-edit-mode .input-args-display {
+	display: none;
+}
+
+.input-args-wrapper.input-args-edit-mode #inputArgsText {
+	display: block;
+}
+
 ::placeholder {
 	color: #9ca3af;
 	font-style: italic;
@@ -374,6 +407,22 @@ button:disabled {
 	margin: 0;
 }
 
+.code-block .json-key {
+	color: #79b8ff;
+}
+.code-block .json-string {
+	color: #a5d6ff;
+}
+.code-block .json-number {
+	color: #79c0ff;
+}
+.code-block .json-boolean {
+	color: #d2a8ff;
+}
+.code-block .json-null {
+	color: #8b949e;
+}
+
 #promptResults,
 #toolResults {
 	background: var(--color-code-bg);
@@ -387,6 +436,10 @@ button:disabled {
 	overflow-y: auto;
 	border: none;
 	border-radius: 0;
+}
+
+#promptResults .prompt-result-error {
+	color: var(--color-status-error);
 }
 
 #promptResults:empty::before,
@@ -407,6 +460,24 @@ button:disabled {
 #toolResults {
 	white-space: break-spaces;
 	word-break: break-all;
+}
+
+/* JSON syntax highlighting */
+.json-key {
+	color: #0550ae;
+}
+.json-string {
+	color: #0a3069;
+}
+.json-number {
+	color: #0550ae;
+}
+.json-boolean {
+	color: #cf222e;
+}
+.json-null {
+	color: #6e7781;
+	font-style: italic;
 }
 
 tbody pre {
@@ -547,6 +618,12 @@ tbody.prettify pre {
 		color: var(--color-text);
 	}
 
+	.input-args-wrapper .input-args-display {
+		background: #0d1117;
+		border-color: var(--color-border);
+		color: var(--color-text);
+	}
+
 	select:focus,
 	textarea:focus,
 	input:focus {
@@ -599,6 +676,22 @@ tbody.prettify pre {
 		background: transparent !important;
 		color: #484f58;
 		border-color: var(--color-border);
+	}
+
+	.json-key {
+		color: #79b8ff;
+	}
+	.json-string {
+		color: #a5d6ff;
+	}
+	.json-number {
+		color: #79c0ff;
+	}
+	.json-boolean {
+		color: #d2a8ff;
+	}
+	.json-null {
+		color: #8b949e;
 	}
 
 	.code-block {
