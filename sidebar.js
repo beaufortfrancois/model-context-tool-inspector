@@ -12,7 +12,9 @@ const copyToClipboard = document.getElementById('copyToClipboard');
 const copyAsScriptToolConfig = document.getElementById('copyAsScriptToolConfig');
 const copyAsJSON = document.getElementById('copyAsJSON');
 const toolNames = document.getElementById('toolNames');
+const inputArgsWrapper = document.getElementById('inputArgsWrapper');
 const inputArgsText = document.getElementById('inputArgsText');
+const inputArgsDisplay = document.getElementById('inputArgsDisplay');
 const executeBtn = document.getElementById('executeBtn');
 const toolResults = document.getElementById('toolResults');
 const userPromptText = document.getElementById('userPromptText');
@@ -22,7 +24,9 @@ const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 
-traceBtn.disabled = true;
+function updateTraceButtonState() {
+  traceBtn.disabled = trace.length === 0;
+}
 
 // Inject content script first.
 (async () => {
@@ -97,7 +101,8 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
     keys.forEach((key) => {
       const td = document.createElement('td');
       try {
-        td.innerHTML = `<pre>${JSON.stringify(JSON.parse(item[key]), '', '  ')}</pre>`;
+        const formatted = JSON.stringify(JSON.parse(item[key]), null, '  ');
+        td.innerHTML = `<pre>${highlightJSON(formatted)}</pre>`;
       } catch (error) {
         td.textContent = item[key];
       }
@@ -213,11 +218,13 @@ promptBtn.onclick = async () => {
     await promptAI();
   } catch (error) {
     trace.push({ error });
-    logPrompt(`⚠️ Error: "${error}"`);
+    updateTraceButtonState();
+    logPrompt(`⚠️ Error: "${error}"`, true);
   }
 };
 
 let trace = [];
+updateTraceButtonState();
 
 async function promptAI() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -227,22 +234,24 @@ async function promptAI() {
   const message = userPromptText.value;
   userPromptText.value = '';
   lastSuggestedUserPrompt = '';
-  promptResults.textContent += `User prompt: "${message}"\n`;
+  logPrompt(`User prompt: "${message}"`);
   const sendMessageParams = { message, config: getConfig() };
   trace.push({ userPrompt: sendMessageParams });
+  updateTraceButtonState();
   let currentResult = await chat.sendMessage(sendMessageParams);
   let finalResponseGiven = false;
 
   while (!finalResponseGiven) {
     const response = currentResult;
     trace.push({ response });
+    updateTraceButtonState();
     const functionCalls = response.functionCalls || [];
 
     if (functionCalls.length === 0) {
       if (!response.text) {
-        logPrompt(`⚠️ AI response has no text: ${JSON.stringify(response.candidates)}\n`);
+        logPrompt(`⚠️ AI response has no text: ${JSON.stringify(response.candidates)}`, true);
       } else {
-        logPrompt(`AI result: ${response.text?.trim()}\n`);
+        logPrompt(`AI result: ${response.text?.trim()}`);
       }
       finalResponseGiven = true;
     } else {
@@ -259,7 +268,7 @@ async function promptAI() {
           toolResponses.push({ functionResponse: { name, response: { result } } });
           logPrompt(`Tool "${name}" result: ${result}`);
         } catch (e) {
-          logPrompt(`⚠️ Error executing tool "${name}": ${e.message}`);
+          logPrompt(`⚠️ Error executing tool "${name}": ${e.message}`, true);
           toolResponses.push({
             functionResponse: { name, response: { error: e.message } },
           });
@@ -271,6 +280,7 @@ async function promptAI() {
 
       const sendMessageParams = { message: toolResponses, config: getConfig() };
       trace.push({ userPrompt: sendMessageParams });
+      updateTraceButtonState();
       currentResult = await chat.sendMessage(sendMessageParams);
     }
   }
@@ -279,6 +289,7 @@ async function promptAI() {
 resetBtn.onclick = () => {
   chat = undefined;
   trace = [];
+  updateTraceButtonState();
   userPromptText.value = '';
   lastSuggestedUserPrompt = '';
   promptResults.textContent = '';
@@ -298,6 +309,15 @@ traceBtn.onclick = async () => {
   await navigator.clipboard.writeText(text);
 };
 
+function setToolResultsContent(result) {
+  try {
+    const parsed = typeof result === 'string' ? JSON.parse(result) : result;
+    toolResults.innerHTML = highlightJSON(JSON.stringify(parsed, null, 2));
+  } catch {
+    toolResults.textContent = result ?? '';
+  }
+}
+
 executeBtn.onclick = async () => {
   const name = toolNames.value;
   if (!name) return;
@@ -306,15 +326,17 @@ executeBtn.onclick = async () => {
   const inputArgs = inputArgsText.value;
   const result = await chrome.tabs.sendMessage(tab.id, { action: 'EXECUTE_TOOL', name, inputArgs });
   if (result !== null) {
-    toolResults.textContent = result;
+    setToolResultsContent(result);
     return;
   }
   // A navigation was triggered. The result will be on the next document.
   // TODO: Handle case where a new tab is opened.
   await waitForPageLoad(tab.id);
-  toolResults.textContent = await chrome.tabs.sendMessage(tab.id, {
-    action: 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT',
-  });
+  setToolResultsContent(
+    await chrome.tabs.sendMessage(tab.id, {
+      action: 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT',
+    }),
+  );
 };
 
 toolNames.onchange = () => {
@@ -331,12 +353,68 @@ function updateDefaultValueForInputArgs() {
   const inputSchema = selected?.dataset?.inputSchema || '{}';
   const template = generateTemplateFromSchema(JSON.parse(inputSchema));
   inputArgsText.value = JSON.stringify(template, '', ' ');
+  updateInputArgsDisplay();
 }
+
+function updateInputArgsDisplay() {
+  const raw = inputArgsText.value.trim();
+  try {
+    const formatted = JSON.stringify(JSON.parse(raw), null, 2);
+    inputArgsDisplay.innerHTML = highlightJSON(formatted);
+    inputArgsDisplay.hidden = false;
+    inputArgsWrapper.classList.remove('input-args-edit-mode');
+  } catch {
+    inputArgsDisplay.innerHTML = '';
+    inputArgsDisplay.hidden = true;
+    inputArgsWrapper.classList.add('input-args-edit-mode');
+  }
+}
+
+inputArgsDisplay.onclick = () => {
+  inputArgsDisplay.hidden = true;
+  inputArgsWrapper.classList.add('input-args-edit-mode');
+  inputArgsText.focus();
+};
+
+inputArgsText.onblur = () => {
+  updateInputArgsDisplay();
+};
+
+inputArgsText.onfocus = () => {
+  inputArgsDisplay.hidden = true;
+  inputArgsWrapper.classList.add('input-args-edit-mode');
+};
+
+updateInputArgsDisplay();
 
 // Utils
 
-function logPrompt(text) {
-  promptResults.textContent += `${text}\n`;
+function highlightJSON(jsonStr) {
+  const escaped = jsonStr
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return escaped.replace(
+    /("(\\u[\da-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
+    (match) => {
+      let cls = 'json-number';
+      if (/^"/.test(match)) {
+        cls = /:$/.test(match) ? 'json-key' : 'json-string';
+      } else if (/true|false/.test(match)) {
+        cls = 'json-boolean';
+      } else if (/null/.test(match)) {
+        cls = 'json-null';
+      }
+      return `<span class="${cls}">${match}</span>`;
+    },
+  );
+}
+
+function logPrompt(text, isError = false) {
+  const line = document.createElement('div');
+  line.textContent = text;
+  if (isError) line.classList.add('prompt-result-error');
+  promptResults.appendChild(line);
   promptResults.scrollTop = promptResults.scrollHeight;
 }
 
