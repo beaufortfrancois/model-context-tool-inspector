@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebMCP Embedded Agent Widget</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <div id="app" class="layout">
+      <aside class="left-pane">
+        <h1>Input Form & Tools</h1>
+        <p>This side represents the host page where tools are registered.</p>
+        <div class="actions" style="margin-bottom: 1rem;">
+          <button id="register-mcp-tools-btn" style="background-color: #10b981;">Register MCP Tools</button>
+        </div>
+        <form id="demo-form" class="tool-form">
+          <div class="field">
+            <label for="username">Username:</label>
+            <input type="text" id="username" name="username" placeholder="Enter username" />
+          </div>
+          <div class="field">
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" placeholder="Enter email" />
+          </div>
+          <button type="submit">Submit Form</button>
+        </form>
+        <div id="tools-status" class="status-box">
+          <h3>Registered WebMCP Tools:</h3>
+          <ul id="mcp-tools-list" style="list-style: none; padding: 0; color: var(--primary-color); font-weight: bold;"></ul>
+          <hr />
+          <h3>Submitted Data:</h3>
+          <ul id="registered-tools-list"></ul>
+        </div>
+      </aside>
+
+      <main class="right-pane">
+        <div id="chat-widget-container">
+          <!-- AI Chat Widget will be mounted here -->
+        </div>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
