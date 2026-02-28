@@ -221,6 +221,38 @@ tbody.prettify pre {
   display: none;
 }
 
+/* Skill cards */
+.skill-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: white;
+}
+
+.skill-card-name {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.skill-card-description {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.skill-card-tokens {
+  font-size: 11px;
+  color: #999;
+}
+
+.empty-state {
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #121212;
@@ -312,5 +344,22 @@ tbody.prettify pre {
 
   #status {
     color: #f87171; /* Lighter red for readability on dark */
+  }
+
+  .skill-card {
+    background: #1e1e1e;
+    border-color: #404040;
+  }
+
+  .skill-card-description {
+    color: #a3a3a3;
+  }
+
+  .skill-card-tokens {
+    color: #6b7280;
+  }
+
+  .empty-state {
+    color: #6b7280;
   }
 }

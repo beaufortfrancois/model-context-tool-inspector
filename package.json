@@ -1,9 +1,10 @@
 {
   "scripts": {
-    "postinstall": "npx esbuild ./node_modules/@google/genai/dist/web/index.mjs --bundle --format=esm --outfile=js-genai.js && rm -rf node_modules"
+    "postinstall": "npx esbuild ./node_modules/@google/genai/dist/web/index.mjs --bundle --format=esm --outfile=js-genai.js && cp ./node_modules/agent-skills-ts-sdk/dist/index.js js-agent-skills.mjs && rm -rf node_modules"
   },
   "dependencies": {
-    "@google/genai": "^1.38.0"
+    "@google/genai": "^1.38.0",
+    "agent-skills-ts-sdk": "^2.0.6"
   },
   "devDependencies": {
     "esbuild": "^0.27.3"

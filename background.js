@@ -19,6 +19,9 @@ chrome.runtime.onInstalled.addListener(async () => {
   });
 });
 
+// Track skills per tab (tabId → raw skill content strings).
+const skillsByTab = new Map();
+
 // Update badge text with the number of tools per tab.
 chrome.tabs.onActivated.addListener(({ tabId }) => updateBadge(tabId));
 chrome.tabs.onUpdated.addListener((tabId) => updateBadge(tabId));
@@ -31,9 +34,20 @@ async function updateBadge(tabId) {
   chrome.tabs.sendMessage(tabId, { action: 'LIST_TOOLS' }).catch(({ message }) => {
     chrome.runtime.sendMessage({ message });
   });
+  chrome.tabs.sendMessage(tabId, { action: 'LIST_SKILLS' }).catch(() => {});
 }
 
-chrome.runtime.onMessage.addListener(({ tools }, { tab }) => {
-  const text = tools?.length ? `${tools.length}` : '';
-  chrome.action.setBadgeText({ text, tabId: tab.id });
+chrome.runtime.onMessage.addListener(({ tools, skills, references }, { tab }) => {
+  if (tools) {
+    const text = tools.length ? `${tools.length}` : '';
+    chrome.action.setBadgeText({ text, tabId: tab.id });
+  }
+  if (skills) {
+    skillsByTab.set(tab.id, { skills, references });
+  }
+});
+
+// Clean up skills when a tab is closed.
+chrome.tabs.onRemoved.addListener((tabId) => {
+  skillsByTab.delete(tabId);
 });
