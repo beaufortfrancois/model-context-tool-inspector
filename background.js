@@ -19,7 +19,6 @@ chrome.runtime.onInstalled.addListener(async () => {
   });
 });
 
-// Track skills per tab (tabId → raw skill content strings).
 const skillsByTab = new Map();
 
 // Update badge text with the number of tools per tab.
@@ -47,7 +46,6 @@ chrome.runtime.onMessage.addListener(({ tools, skills, references }, { tab }) =>
   }
 });
 
-// Clean up skills when a tab is closed.
 chrome.tabs.onRemoved.addListener((tabId) => {
   skillsByTab.delete(tabId);
 });

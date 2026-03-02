@@ -255,7 +255,6 @@ async function promptAI() {
         try {
           let result;
           if (name === 'read_site_context') {
-            // Handle read_site_context locally — not forwarded to content script
             const requestedSkillName =
               typeof args?.name === 'string'
                 ? args.name

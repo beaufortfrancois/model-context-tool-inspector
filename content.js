@@ -75,8 +75,7 @@ window.addEventListener('toolcancel', ({ toolName }) => {
   console.debug(`[WebMCP] Tool "${toolName}" execution is cancelled.`);
 });
 
-// Skill discovery — extract raw text from <script type="agent-context"> elements
-// and references from <script type="agent-context/reference"> elements.
+
 function discoverSkills() {
   const skillEls = document.querySelectorAll('script[type="agent-context"]');
   const skills = Array.from(skillEls).map((el) => el.textContent || '');
@@ -92,7 +91,6 @@ function discoverSkills() {
   chrome.runtime.sendMessage({ skills, references, url: location.href });
 }
 
-// Watch for added/removed skill and reference elements (SPA support).
 new MutationObserver((mutations) => {
   for (const mutation of mutations) {
     for (const node of [...mutation.addedNodes, ...mutation.removedNodes]) {
