@@ -28,9 +28,10 @@ async function updateBadge(tabId) {
   if (tab.id !== tabId) return;
   chrome.action.setBadgeText({ text: '', tabId });
   chrome.action.setBadgeBackgroundColor({ color: '#2563eb' });
-  chrome.tabs.sendMessage(tabId, { action: 'LIST_TOOLS' }).catch(({ message }) => {
-    chrome.runtime.sendMessage({ message });
-  });
+  chrome.tabs.sendMessage(tabId, { action: "LIST_TOOLS" }).catch((err) => {
+  if (err?.message?.includes("Receiving end does not exist")) return;
+  chrome.runtime.sendMessage({ message: err?.message }).catch(() => {});
+});
 }
 
 chrome.runtime.onMessage.addListener(({ tools }, { tab }) => {

@@ -1,70 +1,101 @@
-<!DOCTYPE html>
+<!doctype html>
 <!--
  Copyright 2026 Google LLC
  SPDX-License-Identifier: Apache-2.0
 -->
 
 <html>
-  <head>
-    <title>Tool Inspector</title>
-    <meta charset="utf-8">
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <div class="container">
-      <h2 class="collapsible-header">WebMCP Tools</h2>
-      <div class="section-content">
+	<head>
+		<title>Tool Inspector</title>
+		<meta charset="utf-8" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Source+Code+Pro:wght@400;500&display=swap"
+			rel="stylesheet"
+		/>
+		<link rel="stylesheet" href="styles.css" />
+	</head>
+	<body>
+		<div class="container">
+			<section class="section-card">
+				<details class="collapsible-details" open>
+					<summary class="collapsible-header">WebMCP Tools</summary>
+					<div class="section-content">
+						<div id="status" class="status-bar"></div>
+						<div class="table-wrapper">
+							<div class="table-container">
+								<table id="resultsTable">
+									<thead>
+										<tr id="tableHeaderRow"></tr>
+									</thead>
+									<tbody id="tableBody"></tbody>
+								</table>
+							</div>
+							<div
+								id="copyToClipboard"
+								class="copy-actions copy-actions--disabled"
+							>
+								<span id="copyAsScriptToolConfig"
+									>Copy as ScriptToolConfig</span
+								>
+								<span id="copyAsJSON">Copy as JSON</span>
+							</div>
+						</div>
+					</div>
+				</details>
+			</section>
 
-      <div id="status"></div>
-
-      <div class="table-container">
-        <table id="resultsTable">
-          <thead>
-            <tr id="tableHeaderRow"></tr>
-          </thead>
-          <tbody id="tableBody"></tbody>
-        </table>
-        <div id="copyToClipboard">
-          <span id="copyAsScriptToolConfig">📝 Copy as ScriptToolConfig</span>
-          <span id="copyAsJSON">📝 Copy as JSON</span>
-        </div>
-      </div>
-      </div>
-
-      <h2 class="collapsible-header">Interact with the Page</h2>
-      <div class="section-content">
-
-      <div class="form-group">
-        <label for="userPromptText">User Prompt</label>
-        <textarea id="userPromptText"></textarea>
-      </div>
-
-      <div class="form-group">
-        <button id="promptBtn" disabled>Send</button>
-        <button id="resetBtn" class="secondary" disabled>Reset</button>
-        <button id="apiKeyBtn" class="secondary">Set Gemini API key</button>
-        <button id="traceBtn" class="secondary">Copy trace</button>
-      </div>
-
-      <pre id="promptResults"></pre>
-
-      <div class="form-group">
-        <label for="toolNames">Tool</label>
-        <select id="toolNames"></select>
-      </div>
-
-      <div class="form-group">
-        <label for="inputArgsText">Input Arguments</label>
-        <textarea id="inputArgsText">{"text": "hello world"}</textarea>
-      </div>
-
-      <div class="form-group">
-        <button id="executeBtn">Execute Tool</button>
-      </div>
-
-      <pre id="toolResults"></pre>
-      </div>
-    </div>
-    <script type="module" src="sidebar.js"></script>
-  </body>
+			<section class="section-card">
+				<details class="collapsible-details" open>
+					<summary class="collapsible-header">Interact with the Page</summary>
+					<div class="section-content">
+						<div class="form-group">
+							<label for="userPromptText">User Prompt</label>
+							<textarea
+								id="userPromptText"
+								placeholder="Enter your prompt..."
+							></textarea>
+						</div>
+						<div class="button-row">
+							<button id="promptBtn" disabled>Send</button>
+							<button id="resetBtn" class="secondary" disabled>Reset</button>
+							<button id="apiKeyBtn" class="secondary">
+								Set Gemini API key
+							</button>
+							<button id="traceBtn" class="secondary">Copy trace</button>
+						</div>
+						<div class="code-block">
+							<pre id="promptResults"></pre>
+						</div>
+						<div class="form-group">
+							<label for="toolNames">Tool</label>
+							<select id="toolNames">
+								<option value="">Select a tool...</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label for="inputArgsText">Input Arguments</label>
+							<div class="input-args-wrapper" id="inputArgsWrapper">
+								<pre id="inputArgsDisplay" class="input-args-display" aria-hidden="true"></pre>
+								<textarea
+									id="inputArgsText"
+									placeholder='e.g. {"text": "hello world"}'
+								>
+{"text": "hello world"}</textarea
+								>
+							</div>
+						</div>
+						<div class="form-group">
+							<button id="executeBtn" class="btn-primary">Execute Tool</button>
+						</div>
+						<div class="code-block">
+							<pre id="toolResults"></pre>
+						</div>
+					</div>
+				</details>
+			</section>
+		</div>
+		<script type="module" src="sidebar.js"></script>
+	</body>
 </html>
