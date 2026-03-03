@@ -440,7 +440,6 @@ function getConfig() {
       name: s.name,
       description: s.description,
       location: s.location,
-      resources: s.resources.map((resource) => resource.name),
     }));
     const skillsXml = toDisclosurePrompt(skillEntries);
     systemInstruction.push('');
