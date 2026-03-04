@@ -1,2 +1,5 @@
 .env.json
 js-genai.js
+js-agent-skills.js
+js-agent-skills.mjs
+node_modules/

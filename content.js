@@ -7,6 +7,10 @@ console.debug('[WebMCP] Content script injected');
 
 chrome.runtime.onMessage.addListener(({ action, name, inputArgs }, _, reply) => {
   try {
+    if (action == 'LIST_SKILLS') {
+      discoverSkills();
+      return;
+    }
     if (!navigator.modelContextTesting) {
       throw new Error('Error: You must run Chrome with the "WebMCP for testing" flag enabled.');
     }
@@ -70,3 +74,33 @@ window.addEventListener('toolactivated', ({ toolName }) => {
 window.addEventListener('toolcancel', ({ toolName }) => {
   console.debug(`[WebMCP] Tool "${toolName}" execution is cancelled.`);
 });
+
+
+function discoverSkills() {
+  const skillEls = document.querySelectorAll('script[type="agent-context"]');
+  const skills = Array.from(skillEls).map((el) => el.textContent || '');
+
+  const refEls = document.querySelectorAll('script[type="agent-context/reference"]');
+  const references = Array.from(refEls).map((el) => ({
+    skill: el.dataset.skill,
+    name: el.dataset.name,
+    content: el.textContent || '',
+  }));
+
+  console.debug(`[WebMCP] Got ${skills.length} skills, ${references.length} references`);
+  chrome.runtime.sendMessage({ skills, references, url: location.href });
+}
+
+new MutationObserver((mutations) => {
+  for (const mutation of mutations) {
+    for (const node of [...mutation.addedNodes, ...mutation.removedNodes]) {
+      if (
+        node.nodeName === 'SCRIPT' &&
+        (node.type === 'agent-context' || node.type === 'agent-context/reference')
+      ) {
+        discoverSkills();
+        return;
+      }
+    }
+  }
+}).observe(document.documentElement, { childList: true, subtree: true });

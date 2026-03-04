@@ -4,6 +4,15 @@
  */
 
 import { GoogleGenAI } from './js-genai.js';
+import {
+  estimateTokens,
+  extractResourceLinks,
+  handleSkillRead,
+  parseSkillContent,
+  toDisclosureInstructions,
+  toDisclosurePrompt,
+  toReadToolSchema,
+} from './js-agent-skills.mjs';
 
 const statusDiv = document.getElementById('status');
 const tbody = document.getElementById('tableBody');
@@ -21,12 +30,14 @@ const traceBtn = document.getElementById('traceBtn');
 const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
+const skillsList = document.getElementById('skillsList');
 
-// Inject content script first.
+// Request tools and skills from the active tab on startup.
 (async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
+    chrome.tabs.sendMessage(tab.id, { action: 'LIST_SKILLS' }).catch(() => {});
   } catch (error) {
     const statusDiv = document.getElementById('status');
     statusDiv.textContent = error;
@@ -36,14 +47,20 @@ const promptResults = document.getElementById('promptResults');
 })();
 
 let currentTools;
+let currentSkills = [];
 
 let userPromptPendingId = 0;
 let lastSuggestedUserPrompt = '';
 
 // Listen for the results coming back from content.js
-chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
+chrome.runtime.onMessage.addListener(async ({ message, tools, skills, references, url }, sender) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (sender.tab && sender.tab.id !== tab.id) return;
+
+  if (skills) {
+    parseAndRenderSkills(skills, references, url || tab.url);
+    return;
+  }
 
   tbody.innerHTML = '';
   thead.innerHTML = '';
@@ -236,11 +253,30 @@ async function promptAI() {
         const inputArgs = JSON.stringify(args);
         logPrompt(`AI calling tool "${name}" with ${inputArgs}`);
         try {
-          const result = await chrome.tabs.sendMessage(tab.id, {
-            action: 'EXECUTE_TOOL',
-            name,
-            inputArgs,
-          });
+          let result;
+          if (name === 'read_site_context') {
+            const requestedSkillName =
+              typeof args?.name === 'string'
+                ? args.name
+                : typeof args?.skill === 'string'
+                  ? args.skill
+                  : typeof args?.skill_name === 'string'
+                    ? args.skill_name
+                    : currentSkills.length === 1
+                      ? currentSkills[0].name
+                      : '';
+            const readResult = handleSkillRead(currentSkills, {
+              name: requestedSkillName,
+              resource: typeof args?.resource === 'string' ? args.resource : undefined,
+            });
+            result = readResult.ok ? readResult.content : readResult.error;
+          } else {
+            result = await chrome.tabs.sendMessage(tab.id, {
+              action: 'EXECUTE_TOOL',
+              name,
+              inputArgs,
+            });
+          }
           toolResponses.push({ functionResponse: { name, response: { result } } });
           logPrompt(`Tool "${name}" result: ${result}`);
         } catch (e) {
@@ -267,6 +303,11 @@ resetBtn.onclick = () => {
   userPromptText.value = '';
   lastSuggestedUserPrompt = '';
   promptResults.textContent = '';
+  // Re-discover skills from current tab
+  (async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    chrome.tabs.sendMessage(tab.id, { action: 'LIST_SKILLS' }).catch(() => {});
+  })();
   suggestUserPrompt();
 };
 
@@ -309,6 +350,64 @@ function updateDefaultValueForInputArgs() {
   inputArgsText.value = JSON.stringify(template, '', ' ');
 }
 
+// Skills
+
+function parseAndRenderSkills(rawSkills, rawReferences, url) {
+  currentSkills = rawSkills
+    .map((raw) => {
+      try {
+        const { properties, body } = parseSkillContent(raw, { inputMode: 'embedded' });
+        const resourceLinks = extractResourceLinks(body);
+        const resourcePathByName = new Map(resourceLinks.map((link) => [link.name, link.path]));
+        const resources = (rawReferences || [])
+          .filter((r) => r.skill === properties.name)
+          .map((r) => ({
+            name: r.name,
+            path: resourcePathByName.get(r.name) || `references/${r.name}`,
+            content: r.content || '',
+          }));
+        return {
+          name: properties.name,
+          description: properties.description,
+          body,
+          resources,
+          location: url,
+        };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+
+  renderSkillCards();
+}
+
+function renderSkillCards() {
+  skillsList.innerHTML = '';
+  if (currentSkills.length === 0) {
+    skillsList.innerHTML = '<p class="empty-state">No skills declared on this page</p>';
+    return;
+  }
+  for (const skill of currentSkills) {
+    const card = document.createElement('div');
+    card.className = 'skill-card';
+    const tokens = estimateTokens(skill.body);
+    const refCount = skill.resources.length;
+    card.innerHTML = `
+      <div class="skill-card-name">${escapeHtml(skill.name)}</div>
+      <div class="skill-card-description">${escapeHtml(skill.description)}</div>
+      <div class="skill-card-tokens">~${tokens} tokens${refCount ? ` · ${refCount} resource${refCount !== 1 ? 's' : ''}` : ''}</div>
+    `;
+    skillsList.appendChild(card);
+  }
+}
+
+function escapeHtml(text) {
+  const el = document.createElement('span');
+  el.textContent = text;
+  return el.innerHTML;
+}
+
 // Utils
 
 function logPrompt(text) {
@@ -335,6 +434,19 @@ function getConfig() {
     'CRITICAL RULE: Whenever the user provides a relative date (e.g., "next Monday", "tomorrow", "in 3 days"),  you must calculate the exact calendar date based on today\'s date.',
   ];
 
+  // Inject skill context via progressive disclosure
+  if (currentSkills.length > 0) {
+    const skillEntries = currentSkills.map((s) => ({
+      name: s.name,
+      description: s.description,
+      location: s.location,
+    }));
+    const skillsXml = toDisclosurePrompt(skillEntries);
+    systemInstruction.push('');
+    systemInstruction.push(toDisclosureInstructions({ toolName: 'read_site_context' }));
+    systemInstruction.push(skillsXml);
+  }
+
   const functionDeclarations = currentTools.map((tool) => {
     return {
       name: tool.name,
@@ -344,6 +456,18 @@ function getConfig() {
         : { type: 'object', properties: {} },
     };
   });
+
+  // Add read_site_context as a built-in tool when skills are available
+  if (currentSkills.length > 0) {
+    functionDeclarations.push(
+      toReadToolSchema(currentSkills, {
+        toolName: 'read_site_context',
+        description:
+          'Read site skill context. Without a resource parameter, returns the skill overview which lists available resources. With a resource parameter, returns the full content of that specific resource.',
+      })
+    );
+  }
+
   return { systemInstruction, tools: [{ functionDeclarations }] };
 }
 
