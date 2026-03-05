@@ -4,6 +4,7 @@
  */
 
 import { GoogleGenAI } from './js-genai.js';
+import { buildJsonToolSystemPrompt, parseJsonFunctionCalls, formatToolResults } from './tool-calling.js';
 
 const statusDiv = document.getElementById('status');
 const tbody = document.getElementById('tableBody');
@@ -21,6 +22,7 @@ const traceBtn = document.getElementById('traceBtn');
 const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
+const builtInAICheckbox = document.getElementById('builtInAICheckbox');
 
 // Inject content script first.
 (async () => {
@@ -156,31 +158,37 @@ async function initGenAI() {
 initGenAI();
 
 async function suggestUserPrompt() {
-  if (currentTools.length == 0 || !genAI || userPromptText.value !== lastSuggestedUserPrompt)
+  if (currentTools.length == 0 || (!genAI && !builtInAICheckbox.checked) || userPromptText.value !== lastSuggestedUserPrompt)
     return;
   const userPromptId = ++userPromptPendingId;
-  const response = await genAI.models.generateContent({
-    model: localStorage.model,
-    contents: [
-      '**Context:**',
-      `Today's date is: ${getFormattedDate()}`,
-      '**Tool Rules:**',
-      '1. **Bank Transaction Filter:** Use **PAST** dates only (e.g., "last month," "December 15th," "yesterday").',
-      '2. **Flight Search:** Use **FUTURE** dates only (e.g., "next week," "February 15th").',
-      '3. **Accommodation Search:** Use **FUTURE** dates only (e.g., "next weekend," "March 15th").',
-      '**Task:**',
-      'Generate one natural user query for a range of tools below, ideally chaining them together.',
-      'Ensure the date makes sense relative to today.',
-      'Output the query text only.',
-      '**Tools:**',
-      JSON.stringify(currentTools),
-    ],
-  });
+  const contents = [
+    '**Context:**',
+    `Today's date is: ${getFormattedDate()}`,
+    '**Tool Rules:**',
+    '1. **Bank Transaction Filter:** Use **PAST** dates only (e.g., "last month," "December 15th," "yesterday").',
+    '2. **Flight Search:** Use **FUTURE** dates only (e.g., "next week," "February 15th").',
+    '3. **Accommodation Search:** Use **FUTURE** dates only (e.g., "next weekend," "March 15th").',
+    '**Task:**',
+    'Generate one natural user query for a range of tools below, ideally chaining them together.',
+    'Ensure the date makes sense relative to today.',
+    'Output the query text only.',
+    '**Tools:**',
+    JSON.stringify(currentTools),
+  ];
+  let responseText;
+  if (builtInAICheckbox.checked) {
+    const session = await LanguageModel.create();
+    responseText = await session.prompt(contents.join('\n'));
+    session.destroy();
+  } else {
+    const response = await genAI.models.generateContent({ model: localStorage.model, contents });
+    responseText = response.text;
+  }
   if (userPromptId !== userPromptPendingId || userPromptText.value !== lastSuggestedUserPrompt)
     return;
-  lastSuggestedUserPrompt = response.text;
+  lastSuggestedUserPrompt = responseText;
   userPromptText.value = '';
-  for (const chunk of response.text) {
+  for (const chunk of responseText) {
     await new Promise((r) => requestAnimationFrame(r));
     userPromptText.value += chunk;
   }
@@ -195,7 +203,11 @@ userPromptText.onkeydown = (event) => {
 
 promptBtn.onclick = async () => {
   try {
-    await promptAI();
+    if (builtInAICheckbox.checked) {
+      await promptAIBuiltIn();
+    } else {
+      await promptAI();
+    }
   } catch (error) {
     trace.push({ error });
     logPrompt(`⚠️ Error: "${error}"`);
@@ -261,8 +273,88 @@ async function promptAI() {
   }
 }
 
+let builtInSession;
+
+async function promptAIBuiltIn() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  const toolDefs = currentTools.map((tool) => ({
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.inputSchema ? JSON.parse(tool.inputSchema) : { type: 'object', properties: {} },
+  }));
+
+  const systemInstruction = [
+    'You are an assistant embedded in a browser tab.',
+    'User prompts typically refer to the current tab unless stated otherwise.',
+    'Use your tools to query page content when you need it.',
+    `Today's date is: ${getFormattedDate()}`,
+    'CRITICAL RULE: Whenever the user provides a relative date (e.g., "next Monday", "tomorrow", "in 3 days"), you must calculate the exact calendar date based on today\'s date.',
+    'CRITICAL RULE: After receiving a tool result, you MUST respond to the user with a summary. Do NOT call the same tool again unless the user asks for something different.',
+    'CRITICAL RULE: A tool result means the action was performed. Report the outcome to the user.',
+  ].join('\n');
+
+  const systemPrompt = buildJsonToolSystemPrompt(systemInstruction, toolDefs);
+
+  builtInSession ??= await LanguageModel.create({
+    initialPrompts: [{ role: 'system', content: systemPrompt }],
+  });
+
+  const message = userPromptText.value;
+  userPromptText.value = '';
+  lastSuggestedUserPrompt = '';
+  promptResults.textContent += `User prompt: "${message}"\n`;
+  trace.push({ userPrompt: message });
+
+  let currentMessage = message;
+  const maxIterations = 10;
+  let lastToolCallKey = '';
+
+  for (let i = 0; i < maxIterations; i++) {
+    const rawResponse = await builtInSession.prompt(currentMessage);
+    trace.push({ response: rawResponse });
+
+    const { toolCalls, textContent } = parseJsonFunctionCalls(rawResponse);
+
+    if (toolCalls.length === 0) {
+      logPrompt(`AI result: ${(textContent || rawResponse).trim()}\n`);
+      break;
+    }
+
+    const toolCallKey = JSON.stringify(toolCalls.map(c => [c.toolName, c.args]));
+    if (toolCallKey === lastToolCallKey) {
+      logPrompt(`AI result: ${(textContent || 'The action was completed successfully.').trim()}\n`);
+      break;
+    }
+    lastToolCallKey = toolCallKey;
+
+    const toolResults = [];
+    for (const { toolCallId, toolName, args } of toolCalls) {
+      const inputArgs = JSON.stringify(args);
+      logPrompt(`AI calling tool "${toolName}" with ${inputArgs}`);
+      try {
+        const result = await chrome.tabs.sendMessage(tab.id, {
+          action: 'EXECUTE_TOOL',
+          name: toolName,
+          inputArgs,
+        });
+        toolResults.push({ toolCallId, toolName, result, isError: false });
+        logPrompt(`Tool "${toolName}" result: ${result}`);
+      } catch (e) {
+        logPrompt(`⚠️ Error executing tool "${toolName}": ${e.message}`);
+        toolResults.push({ toolCallId, toolName, result: e.message, isError: true });
+      }
+    }
+
+    currentMessage = formatToolResults(toolResults);
+    trace.push({ toolResults: currentMessage });
+  }
+}
+
 resetBtn.onclick = () => {
   chat = undefined;
+  builtInSession?.destroy();
+  builtInSession = undefined;
   trace = [];
   userPromptText.value = '';
   lastSuggestedUserPrompt = '';
@@ -276,6 +368,14 @@ apiKeyBtn.onclick = async () => {
   localStorage.apiKey = apiKey;
   await initGenAI();
   suggestUserPrompt();
+};
+
+builtInAICheckbox.onchange = () => {
+  const useBuiltIn = builtInAICheckbox.checked;
+  apiKeyBtn.disabled = useBuiltIn;
+  promptBtn.disabled = !useBuiltIn && !localStorage.apiKey;
+  resetBtn.disabled = !useBuiltIn && !localStorage.apiKey;
+  if (useBuiltIn) suggestUserPrompt();
 };
 
 traceBtn.onclick = async () => {
