@@ -221,6 +221,54 @@ tbody.prettify pre {
   display: none;
 }
 
+/* Mic Button & Gemini Live specific styles */
+
+.label-with-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  width: 32px;
+  height: 32px;
+  color: #5f6368;
+}
+
+.icon-btn:hover { background-color: rgba(66, 133, 244, 0.1); }
+.icon-btn svg { pointer-events: none; width: 20px; height: 20px; }
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(66, 133, 244, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); }
+}
+
+@keyframes listening-glow {
+  0% { box-shadow: 0 0 0 0 rgba(52, 168, 83, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(52, 168, 83, 0.2); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 168, 83, 0); }
+}
+
+@keyframes speaking-glow {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4); }
+  50% { transform: scale(1.1); box-shadow: 0 0 0 12px rgba(234, 67, 53, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 67, 53, 0); }
+}
+
+#micBtn.active { color: #ea4335; animation: pulse-glow 2s infinite; }
+#micBtn.listening { color: #34a853; animation: listening-glow 1s infinite !important; }
+#micBtn.speaking { color: #4285f4; animation: speaking-glow 0.8s infinite !important; }
+
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #121212;
@@ -312,5 +360,9 @@ tbody.prettify pre {
 
   #status {
     color: #f87171; /* Lighter red for readability on dark */
+  }
+
+  .icon-btn {
+    color: #bdc1c6;
   }
 }
