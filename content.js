@@ -7,32 +7,14 @@ console.debug('[WebMCP] Content script injected');
 
 const BRIDGE_KEY = '__webMcpPolyfillTestingBridge';
 
-chrome.runtime.onMessage.addListener(onMessage);
-
-function onMessage({ action, name, inputArgs, settings }, sender, reply) {
+chrome.runtime.onMessage.addListener(async ({ action, name, inputArgs, settings }) => {
   try {
     if (action === 'SET_OPTIONS') {
       window[BRIDGE_KEY]?.setEnabled?.(settings?.injectWebMcpPolyfill === true);
       return;
     }
-    if (!navigator.modelContextTesting) {
-      const promise = window[BRIDGE_KEY]?.ensureTesting?.();
-      if (promise) {
-        promise
-          .then(() => onMessage({ action, name, inputArgs }, sender, reply))
-          .catch(({ message }) => {
-            chrome.runtime.sendMessage({ message });
-            if (action == 'EXECUTE_TOOL' || action == 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT') {
-              reply(JSON.stringify(message));
-            }
-          });
-        if (action == 'EXECUTE_TOOL' || action == 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT') {
-          return true;
-        }
-        return;
-      }
-      throw new Error('Enable native WebMCP testing or turn on the WebMCP polyfill option.');
-    }
+
+    await getModelContextTesting();
     if (action == 'LIST_TOOLS') {
       listTools();
       if ('ontoolchange' in navigator.modelContextTesting.__proto__) {
@@ -53,35 +35,39 @@ function onMessage({ action, name, inputArgs, settings }, sender, reply) {
         });
       }
       // Execute the experimental tool
-      const promise = navigator.modelContextTesting.executeTool(name, inputArgs);
-      promise
-        .then(async (result) => {
-          // If result is null and we have a target frame, wait for the frame to reload.
-          if (result === null && targetFrame) {
-            console.debug(`[WebMCP] Waiting for form target ${targetFrame} to load`);
-            await loadPromise;
-            console.debug('[WebMCP] Get cross document script tool result');
-            result =
-              await targetFrame.contentWindow.navigator.modelContextTesting.getCrossDocumentScriptToolResult();
-          }
-          reply(result);
-        })
-        .catch(({ message }) => reply(JSON.stringify(message)));
-      return true;
+      let result = await navigator.modelContextTesting.executeTool(name, inputArgs);
+      // If result is null and we have a target frame, wait for the frame to reload.
+      if (result === null && targetFrame) {
+        console.debug(`[WebMCP] Waiting for form target ${targetFrame} to load`);
+        await loadPromise;
+        console.debug('[WebMCP] Get cross document script tool result');
+        result =
+          await targetFrame.contentWindow.navigator.modelContextTesting.getCrossDocumentScriptToolResult();
+      }
+      return result;
     }
     if (action == 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT') {
       console.debug('[WebMCP] Get cross document script tool result');
-      const promise = navigator.modelContextTesting.getCrossDocumentScriptToolResult();
-      promise.then(reply).catch(({ message }) => reply(JSON.stringify(message)));
-      return true;
+      return navigator.modelContextTesting
+        .getCrossDocumentScriptToolResult()
+        .catch(({ message }) => JSON.stringify(message));
     }
   } catch ({ message }) {
     chrome.runtime.sendMessage({ message });
     if (action == 'EXECUTE_TOOL' || action == 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT') {
-      reply(JSON.stringify(message));
-      return true;
+      return JSON.stringify(message);
     }
   }
+});
+
+async function getModelContextTesting() {
+  if (navigator.modelContextTesting) {
+    return navigator.modelContextTesting;
+  }
+  if (window[BRIDGE_KEY]?.ensureTesting) {
+    return await window[BRIDGE_KEY].ensureTesting();
+  }
+  throw new Error('Enable native WebMCP testing or turn on the WebMCP polyfill option.');
 }
 
 function listTools() {
