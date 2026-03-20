@@ -89,9 +89,22 @@ export class MicCapture {
   async start() {
     try {
       await this.stop();
+
+      // 1. Pre-flight permission check: Requesting mic here ensures the prompt is VISIBLE in the sidebar.
+      // Once granted here, the offscreen document can access it silently.
+      try {
+        const preflightStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        preflightStream.getTracks().forEach(t => t.stop()); // Close immediately
+      } catch (err) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          throw new Error('Microphone permission denied. Please allow microphone access in Chrome settings.');
+        }
+        throw err;
+      }
+
       chrome.runtime.onMessage.addListener(this._onMessage);
 
-      // Create offscreen document if it doesn't exist
+      // 2. Create offscreen document if it doesn't exist
       if (!(await chrome.offscreen.hasDocument())) {
         await chrome.offscreen.createDocument({
           url: 'offscreen.html',
@@ -103,6 +116,7 @@ export class MicCapture {
       chrome.runtime.sendMessage({ target: 'offscreen', type: 'start-mic' });
     } catch (err) {
       console.error('MicCapture start failed:', err);
+      logPrompt(`⚠️ Mic Error: ${err.message}`);
       throw err;
     }
   }
