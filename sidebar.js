@@ -21,19 +21,52 @@ const traceBtn = document.getElementById('traceBtn');
 const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
+const injectWebMcpPolyfill = document.getElementById('injectWebMcpPolyfill');
+const injectWebMcpPolyfillHelp = document.getElementById('injectWebMcpPolyfillHelp');
 
-// Inject content script first.
+const POLYFILL_HELP_MESSAGE = 'Uses a WebMCP polyfill when native Chromium WebMCP testing is unavailable.';
+const NATIVE_HELP_MESSAGE = 'Native Chromium WebMCP testing is available on this page.';
+const POLYFILL_RELOAD_MESSAGE =
+  'Polyfill enabled. Reload the page to register tools on sites that only initialize WebMCP at page load.';
+
+// Load settings then send LIST_TOOLS.
 (async () => {
   try {
+    injectWebMcpPolyfill.checked = (
+      await chrome.storage.local.get({ injectWebMcpPolyfill: false })
+    ).injectWebMcpPolyfill;
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
   } catch (error) {
-    const statusDiv = document.getElementById('status');
     statusDiv.textContent = error;
     statusDiv.hidden = false;
     copyToClipboard.hidden = true;
   }
 })();
+
+injectWebMcpPolyfill.onchange = async () => {
+  try {
+    const settings = { injectWebMcpPolyfill: injectWebMcpPolyfill.checked };
+    await chrome.storage.local.set(settings);
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    await chrome.tabs.sendMessage(tab.id, {
+      action: 'SET_OPTIONS',
+      settings,
+    });
+
+    if (injectWebMcpPolyfill.checked) {
+      statusDiv.textContent = POLYFILL_RELOAD_MESSAGE;
+      statusDiv.hidden = false;
+      return;
+    }
+
+    await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
+  } catch (error) {
+    statusDiv.textContent = error;
+    statusDiv.hidden = false;
+  }
+};
 
 let currentTools;
 
@@ -41,9 +74,14 @@ let userPromptPendingId = 0;
 let lastSuggestedUserPrompt = '';
 
 // Listen for the results coming back from content.js
-chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
+chrome.runtime.onMessage.addListener(async ({ message, tools, url, hasNativeTestingApi }, sender) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (sender.tab && sender.tab.id !== tab.id) return;
+
+  injectWebMcpPolyfill.disabled = Boolean(hasNativeTestingApi);
+  injectWebMcpPolyfillHelp.textContent = injectWebMcpPolyfill.disabled
+    ? NATIVE_HELP_MESSAGE
+    : POLYFILL_HELP_MESSAGE;
 
   tbody.innerHTML = '';
   thead.innerHTML = '';

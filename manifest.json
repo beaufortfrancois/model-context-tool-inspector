@@ -3,7 +3,7 @@
   "name": "WebMCP - Model Context Tool Inspector",
   "description": "Inspect, monitor, and execute WebMCP tools manually or with Gemini",
   "version": "1.9.2",
-  "permissions": ["sidePanel", "activeTab", "scripting"],
+  "permissions": ["sidePanel", "activeTab", "storage", "scripting"],
   "host_permissions": ["<all_urls>"],
   "update_url": "https://clients2.google.com/service/update2/crx",
   "action": {},
@@ -17,7 +17,13 @@
     {
       "matches": ["<all_urls>"],
       "runAt": "document_start",
-      "js": ["content.js"]
+      "world": "MAIN",
+      "js": ["webmcp-polyfill-page-runtime.js"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "runAt": "document_start",
+      "js": ["webmcp-polyfill-testing-client.js", "content.js"]
     }
   ]
 }

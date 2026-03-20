@@ -1,9 +1,13 @@
 {
   "scripts": {
-    "postinstall": "npx esbuild ./node_modules/@google/genai/dist/web/index.mjs --bundle --format=esm --outfile=js-genai.js && rm -rf node_modules"
+    "build": "npx esbuild ./node_modules/@google/genai/dist/web/index.mjs --bundle --format=esm --platform=browser --target=chrome128 --outfile=js-genai.js && npx esbuild ./build/webmcp-polyfill-page-runtime.entry.js --bundle --format=iife --platform=browser --target=chrome128 --outfile=webmcp-polyfill-page-runtime.js && npx esbuild ./build/webmcp-polyfill-testing-client.entry.js --bundle --format=iife --platform=browser --target=chrome128 --outfile=webmcp-polyfill-testing-client.js",
+    "postinstall": "npm run build && rm -rf node_modules"
   },
   "dependencies": {
-    "@google/genai": "^1.38.0"
+    "@google/genai": "^1.38.0",
+    "@mcp-b/global": "^2.2.0",
+    "@mcp-b/transports": "^2.2.0",
+    "@mcp-b/webmcp-ts-sdk": "^2.2.0"
   },
   "devDependencies": {
     "esbuild": "^0.27.3"
