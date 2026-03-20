@@ -167,16 +167,14 @@ copyAsJSON.onclick = async () => {
 
 let genAI, chat;
 
-const envModulePromise = import('./.env.json', { with: { type: 'json' } }).catch(() => ({ default: {} }));
+const envModulePromise = import('./.env.json', { with: { type: 'json' } });
 
 async function initGenAI() {
   let env;
   try {
-    const result = await envModulePromise;
-    env = result.default || {};
-  } catch {
-    env = {};
-  }
+    // Try load .env.json if present.
+    env = (await envModulePromise).default;
+  } catch {}
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
   
   // Transition from old version or if it was accidentally set to the live model
