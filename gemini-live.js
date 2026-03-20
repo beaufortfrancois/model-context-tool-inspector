@@ -252,15 +252,10 @@ async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt })
             }
           }
 
-          // 3. Handle Text (Filter preambles)
+          // 3. Handle Text
           if (message.serverContent?.modelTurn?.parts) {
             for (const part of message.serverContent.modelTurn.parts) {
               if (part.text) {
-                // Silently ignore text that looks like a preamble (bold headers, "Considering", "Initiating", etc.)
-                const isPreamble = part.text.startsWith('**') || /Initiating|Considering|Determining|Defining|Confirming/i.test(part.text);
-                if (isPreamble) {
-                   continue;
-                }
                 logPrompt(`AI result: ${part.text}`);
               }
             }
