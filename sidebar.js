@@ -28,12 +28,24 @@ const micBtn = document.getElementById('micBtn');
 (async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
+    if (tab && tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file'))) {
+      let attempts = 0;
+      const send = async () => {
+        try {
+          await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
+        } catch (e) {
+          if (attempts++ < 5) setTimeout(send, 200 * attempts);
+        }
+      };
+      send();
+    } else {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = 'WebMCP tools are only available on web pages.';
+      statusDiv.hidden = false;
+      copyToClipboard.hidden = true;
+    }
   } catch (error) {
-    const statusDiv = document.getElementById('status');
-    statusDiv.textContent = error;
-    statusDiv.hidden = false;
-    copyToClipboard.hidden = true;
+    // Ignore initial connection errors
   }
 })();
 
@@ -44,9 +56,15 @@ let lastSuggestedUserPrompt = '';
 let toolsUpdateResolver;
 
 // Listen for the results coming back from content.js
-chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg.tools || msg.message) {
+    handleToolMessage(msg, sender);
+  }
+});
+
+async function handleToolMessage({ message, tools, url }, sender) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (sender.tab && sender.tab.id !== tab?.id) return;
+  if (!sender.tab || sender.tab.id !== tab?.id) return;
 
   if (message !== undefined) {
     statusDiv.textContent = message || '';
@@ -58,7 +76,6 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
     thead.innerHTML = '';
     toolNames.innerHTML = '';
 
-    const haveNewTools = JSON.stringify(currentTools) !== JSON.stringify(tools);
     currentTools = tools;
 
     if (toolsUpdateResolver) {
@@ -111,9 +128,9 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
     });
     updateDefaultValueForInputArgs();
 
-    if (haveNewTools) suggestUserPrompt();
+    if (JSON.stringify(currentTools) !== JSON.stringify(tools)) suggestUserPrompt();
   }
-});
+}
 
 tbody.ondblclick = () => {
   tbody.classList.toggle('prettify');
@@ -361,9 +378,27 @@ initGeminiLive({
 
 // Utils
 
+let logBuffer = [];
+let logPending = false;
+
 function logPrompt(text) {
-  promptResults.textContent += `${text}\n`;
-  promptResults.scrollTop = promptResults.scrollHeight;
+  // Defer logging and batch updates to avoid blocking main thread logic.
+  logBuffer.push(text);
+  
+  if (!logPending) {
+    logPending = true;
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        const fragment = document.createDocumentFragment();
+        while (logBuffer.length > 0) {
+          fragment.appendChild(document.createTextNode(`${logBuffer.shift()}\n`));
+        }
+        promptResults.appendChild(fragment);
+        promptResults.scrollTop = promptResults.scrollHeight;
+        logPending = false;
+      });
+    }, 0);
+  }
 }
 
 export function getFormattedDate() {
