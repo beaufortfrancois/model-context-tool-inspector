@@ -6,10 +6,6 @@
 import { GoogleGenAI } from './js-genai.js';
 import { initGeminiLive, MODEL } from './gemini-live.js';
 
-if (!localStorage.model || localStorage.model.includes('gemini-2.0')) {
-  localStorage.model = MODEL;
-}
-
 const statusDiv = document.getElementById('status');
 const tbody = document.getElementById('tableBody');
 const thead = document.getElementById('tableHeaderRow');
@@ -28,47 +24,29 @@ const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 const micBtn = document.getElementById('micBtn');
 
-if (!micBtn) console.error('Could not find micBtn in DOM');
-
 // Inject content script first.
 (async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file'))) {
-      let attempts = 0;
-      const send = async () => {
-        try {
-          await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
-        } catch (e) {
-          if (attempts++ < 5) setTimeout(send, 200 * attempts);
-        }
-      };
-      send();
-    } else {
-      const statusDiv = document.getElementById('status');
-      statusDiv.textContent = 'WebMCP tools are only available on web pages.';
-      statusDiv.hidden = false;
-      copyToClipboard.hidden = true;
-    }
+    await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
   } catch (error) {
-    // Ignore initial connection errors
+    const statusDiv = document.getElementById('status');
+    statusDiv.textContent = error;
+    statusDiv.hidden = false;
+    copyToClipboard.hidden = true;
   }
 })();
 
-let currentTools;
+let currentTools = [];
 let userPromptPendingId = 0;
 let lastSuggestedUserPrompt = '';
 
-// Listen for the results coming back from content.js
-chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg.tools || msg.message) {
-    handleToolMessage(msg, sender);
-  }
-});
+let toolsUpdateResolver;
 
-async function handleToolMessage({ message, tools, url }, sender) {
+// Listen for the results coming back from content.js
+chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!sender.tab || sender.tab.id !== tab?.id) return;
+  if (sender.tab && sender.tab.id !== tab?.id) return;
 
   if (message !== undefined) {
     statusDiv.textContent = message || '';
@@ -82,6 +60,11 @@ async function handleToolMessage({ message, tools, url }, sender) {
 
     const haveNewTools = JSON.stringify(currentTools) !== JSON.stringify(tools);
     currentTools = tools;
+
+    if (toolsUpdateResolver) {
+      toolsUpdateResolver();
+      toolsUpdateResolver = null;
+    }
 
     if (!tools || tools.length === 0) {
       const row = document.createElement('tr');
@@ -130,7 +113,7 @@ async function handleToolMessage({ message, tools, url }, sender) {
 
     if (haveNewTools) suggestUserPrompt();
   }
-}
+});
 
 tbody.ondblclick = () => {
   tbody.classList.toggle('prettify');
@@ -170,30 +153,27 @@ let genAI, chat;
 const envModulePromise = import('./.env.json', { with: { type: 'json' } }).catch(() => ({ default: {} }));
 
 async function initGenAI() {
-  let env;
-  try {
-    const result = await envModulePromise;
-    env = result.default || {};
-  } catch {
-    env = {};
+  const env = (await envModulePromise).default || {};
+  if (env.apiKey) localStorage.apiKey ??= env.apiKey;
+  localStorage.model ??= env.model || 'gemini-2.5-flash';
+
+  // Transition from old version or if it was accidentally set to the live model
+  if (localStorage.model.includes('gemini-2.0') || localStorage.model === MODEL) {
+    localStorage.model = 'gemini-2.5-flash';
   }
-  if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
-  
-  if (!localStorage.model || localStorage.model.includes('gemini-2.0')) {
-    localStorage.model = MODEL;
-  }
-  
+
   if (localStorage.apiKey) {
-    genAI = new GoogleGenAI({ apiKey: localStorage.apiKey, httpOptions: { apiVersion: 'v1alpha' } });
+    // Default to v1beta for chat stability. Gemini Live will explicitly use v1alpha when connecting.
+    genAI = new GoogleGenAI({ apiKey: localStorage.apiKey, httpOptions: { apiVersion: 'v1beta' } });
   }
-  
+
   promptBtn.disabled = !localStorage.apiKey;
   resetBtn.disabled = !localStorage.apiKey;
 }
 initGenAI();
 
 async function suggestUserPrompt() {
-  if (!currentTools || currentTools.length == 0 || !genAI || userPromptText.value !== lastSuggestedUserPrompt)
+  if (currentTools.length == 0 || !genAI || userPromptText.value !== lastSuggestedUserPrompt)
     return;
   const userPromptId = ++userPromptPendingId;
   
@@ -247,7 +227,7 @@ async function promptAI() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   chat ??= genAI.chats.create({ 
     model: localStorage.model,
-    toolConfig: { functionCallingConfig: { mode: 'ANY' } }
+    toolConfig: { functionCallingConfig: { mode: 'AUTO' } }
   });
   const message = userPromptText.value;
   userPromptText.value = '';
@@ -274,33 +254,33 @@ async function promptAI() {
       finalResponseGiven = true;
     } else {
       // Prioritize tool calls over text logging
-      const toolResponses = [];
-      const promises = functionCalls.map(async ({ name, args }) => {
-        const inputArgs = JSON.stringify(args);
-        const toolPromise = executeTool(tab.id, name, inputArgs);
-        logPrompt(`AI calling tool "${name}" with ${inputArgs}`);
-        try {
-          const result = await toolPromise;
-          logPrompt(`Tool "${name}" result: ${result}`);
-          return { functionResponse: { name, response: { result } } };
-        } catch (e) {
-          logPrompt(`⚠️ Error executing tool "${name}": ${e.message}`);
-          return { functionResponse: { name, response: { error: e.message } } };
-        }
-      });
-
+      // Execute tool calls sequentially to handle potential dependencies.
       if (response.text) {
         logPrompt(`AI result: ${response.text.trim()}`);
       }
 
-      const results = await Promise.all(promises);
-      toolResponses.push(...results);
+      for (const { name, args } of functionCalls) {
+        const inputArgs = JSON.stringify(args);
+        logPrompt(`AI calling tool "${name}" with ${inputArgs}`);
+        try {
+          const result = await executeTool(tab.id, name, inputArgs);
+          logPrompt(`Tool "${name}" result: ${result}`);
+          toolResponses.push({ functionResponse: { name, response: { result } } });
+        } catch (e) {
+          logPrompt(`⚠️ Error executing tool "${name}": ${e.message}`);
+          toolResponses.push({ functionResponse: { name, response: { error: e.message } } });
+        }
+      }
       
-      // FIXME: New WebMCP tools may not be discovered if there's a navigation.
-      // We check if the tab is loading, but the artificial 500ms timeout is not robust enough.
+      // If a navigation occurred, wait for the page to load and tools to be registered.
       const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (currentTab.status === 'loading') {
-        await new Promise((r) => setTimeout(r, 500));
+        await Promise.race([
+          new Promise(resolve => { toolsUpdateResolver = resolve; }),
+          waitForPageLoad(currentTab.id),
+          new Promise(resolve => setTimeout(resolve, 2000))
+        ]);
+        toolsUpdateResolver = null;
       }
 
       const sendMessageParams = { message: toolResponses, config: getConfig() };
@@ -377,35 +357,16 @@ initGeminiLive({
   getTools: () => currentTools,
   executeTool,
   logPrompt,
-  getFormattedDate
 });
 
 // Utils
 
-let logBuffer = [];
-let logPending = false;
-
 function logPrompt(text) {
-  // Defer logging and batch updates to avoid blocking main thread logic.
-  logBuffer.push(text);
-  
-  if (!logPending) {
-    logPending = true;
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        const fragment = document.createDocumentFragment();
-        while (logBuffer.length > 0) {
-          fragment.appendChild(document.createTextNode(`${logBuffer.shift()}\n`));
-        }
-        promptResults.appendChild(fragment);
-        promptResults.scrollTop = promptResults.scrollHeight;
-        logPending = false;
-      });
-    }, 0);
-  }
+  promptResults.textContent += `${text}\n`;
+  promptResults.scrollTop = promptResults.scrollHeight;
 }
 
-function getFormattedDate() {
+export function getFormattedDate() {
   const today = new Date();
   return today.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -415,16 +376,20 @@ function getFormattedDate() {
   });
 }
 
-function getConfig() {
-  const systemInstruction = [
+export function getCommonSystemInstructions() {
+  return [
     'You are an assistant embedded in a browser tab.',
     'User prompts typically refer to the current tab unless stated otherwise.',
     'Use your tools to query page content when you need it.',
     `Today's date is: ${getFormattedDate()}`,
     'CRITICAL RULE: Whenever the user provides a relative date (e.g., "next Monday", "tomorrow", "in 3 days"),  you must calculate the exact calendar date based on today\'s date.',
   ];
+}
 
-  const functionDeclarations = (currentTools || []).map((tool) => {
+function getConfig() {
+  const systemInstruction = getCommonSystemInstructions();
+
+  const functionDeclarations = currentTools.map((tool) => {
     return {
       name: tool.name,
       description: tool.description,

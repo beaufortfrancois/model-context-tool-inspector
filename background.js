@@ -25,15 +25,28 @@ chrome.tabs.onUpdated.addListener((tabId) => updateBadge(tabId));
 
 async function updateBadge(tabId) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab.id !== tabId) return;
-  chrome.action.setBadgeText({ text: '', tabId });
-  chrome.action.setBadgeBackgroundColor({ color: '#2563eb' });
-  chrome.tabs.sendMessage(tabId, { action: 'LIST_TOOLS' }).catch(({ message }) => {
-    chrome.runtime.sendMessage({ message });
-  });
+  if (!tab || tab.id !== tabId) return;
+
+  // Only try to message tabs with valid URLs.
+  if (tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file'))) {
+    chrome.action.setBadgeText({ text: '', tabId });
+    chrome.action.setBadgeBackgroundColor({ color: '#2563eb' });
+    
+    try {
+      await chrome.tabs.sendMessage(tabId, { action: 'LIST_TOOLS' });
+    } catch (error) {
+      // Silently catch error if tab is not ready or doesn't have content script.
+      // Also catch runtime errors if the sidebar is closed.
+      chrome.runtime.sendMessage({ message: error.message }).catch(() => {});
+    }
+  } else {
+    chrome.action.setBadgeText({ text: '', tabId });
+  }
 }
 
-chrome.runtime.onMessage.addListener(({ tools }, { tab }) => {
-  const text = tools?.length ? `${tools.length}` : '';
-  chrome.action.setBadgeText({ text, tabId: tab.id });
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg.tools && sender.tab) {
+    const text = msg.tools.length ? `${msg.tools.length}` : '';
+    chrome.action.setBadgeText({ text, tabId: sender.tab.id });
+  }
 });

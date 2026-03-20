@@ -3,8 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { GoogleGenAI } from './js-genai.js';
+import { getCommonSystemInstructions } from './sidebar.js';
+
 // Model definition for Gemini Live
 export const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
+
+if (!localStorage.liveModel || localStorage.liveModel.includes('gemini-2.0')) {
+  localStorage.liveModel = MODEL;
+}
 
 export class AudioScheduler {
   constructor() {
@@ -65,55 +72,54 @@ export class AudioScheduler {
 
 export class MicCapture {
   constructor() {
-    this.ctx = null;
-    this.stream = null;
-    this.worklet = null;
     this.onAudioData = null;
     this.onListening = null;
     this.listeningTimeout = null;
+    this._onMessage = (message) => {
+      if (message.type === 'audio-data') {
+        this.onAudioData?.(message.data);
+        this.onListening?.(true);
+        if (this.listeningTimeout) clearTimeout(this.listeningTimeout);
+        this.listeningTimeout = setTimeout(() => this.onListening?.(false), 200);
+      } else if (message.type === 'mic-error') {
+        console.error('Mic error from offscreen:', message.error);
+      }
+    };
   }
 
   async start() {
     try {
-      this.stop();
-      this.ctx = new AudioContext({ sampleRate: 16000 });
-      await this.ctx.resume();
-      
-      try {
-        this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (err) {
-        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-          const helperUrl = chrome.runtime.getURL('sidebar.html') + '?requestMic=1';
-          window.open(helperUrl, '_blank');
-          throw new Error('Permission required');
-        }
-        throw err;
+      await this.stop();
+      chrome.runtime.onMessage.addListener(this._onMessage);
+
+      // Create offscreen document if it doesn't exist
+      if (!(await chrome.offscreen.hasDocument())) {
+        await chrome.offscreen.createDocument({
+          url: 'offscreen.html',
+          reasons: ['USER_MEDIA'],
+          justification: 'Capture microphone for Gemini Live'
+        });
       }
 
-      await this.ctx.audioWorklet.addModule(chrome.runtime.getURL('audio-processor.js'));
-      const source = this.ctx.createMediaStreamSource(this.stream);
-      this.worklet = new AudioWorkletNode(this.ctx, 'audio-processor');
-      source.connect(this.worklet);
-      
-      this.worklet.port.onmessage = (event) => {
-        if (event.data.type === 'audio') {
-          this.onAudioData?.(event.data.data);
-          this.onListening?.(true);
-          if (this.listeningTimeout) clearTimeout(this.listeningTimeout);
-          this.listeningTimeout = setTimeout(() => this.onListening?.(false), 200);
-        }
-      };
+      chrome.runtime.sendMessage({ target: 'offscreen', type: 'start-mic' });
     } catch (err) {
       console.error('MicCapture start failed:', err);
       throw err;
     }
   }
 
-  stop() {
+  async stop() {
+    chrome.runtime.onMessage.removeListener(this._onMessage);
+    try {
+      if (await chrome.offscreen.hasDocument()) {
+        chrome.runtime.sendMessage({ target: 'offscreen', type: 'stop-mic' });
+        await chrome.offscreen.closeDocument();
+      }
+    } catch (err) {
+      // Ignore errors if document is already closed
+    }
     if (this.listeningTimeout) clearTimeout(this.listeningTimeout);
-    if (this.worklet) { this.worklet.port.onmessage = null; this.worklet.disconnect(); this.worklet = null; }
-    if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
-    if (this.ctx) { try { this.ctx.close(); } catch { }; this.ctx = null; }
+    this.onListening?.(false);
   }
 }
 
@@ -131,26 +137,23 @@ function encode(bytes) {
 }
 
 function createBlob(data) {
-  const int16 = new Int16Array(data.length);
-  for (let i = 0; i < data.length; i++) int16[i] = data[i] * 32768;
-  return { data: encode(new Uint8Array(int16.buffer)), mimeType: "audio/pcm;rate=16000" };
+  return { data: encode(new Uint8Array(data)), mimeType: "audio/pcm;rate=16000" };
 }
 
 let liveSession = null;
 let audioScheduler = null;
 let micCapture = null;
 
-export async function initGeminiLive({ micBtn, apiKeyBtn, getGenAI, getTools, executeTool, logPrompt, getFormattedDate }) {
-  if (!micBtn) return;
-
+export async function initGeminiLive({ micBtn, apiKeyBtn, getGenAI, getTools, executeTool, logPrompt }) {
   micBtn.onclick = async () => {
     if (!localStorage.apiKey) { apiKeyBtn.click(); return; }
     if (liveSession) {
       stopLive(micBtn);
     } else {
-      await startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt, getFormattedDate });
+      await startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt });
     }
   };
+
   
   // Helper for mic permission in tab
   if (window.location.search.includes('requestMic=1')) {
@@ -166,7 +169,7 @@ export async function initGeminiLive({ micBtn, apiKeyBtn, getGenAI, getTools, ex
   }
 }
 
-async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt, getFormattedDate }) {
+async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt }) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   micBtn.classList.add('active');
   micBtn.querySelector('.mic-icon').style.display = 'none';
@@ -178,12 +181,13 @@ async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt, g
   micCapture = new MicCapture();
   micCapture.onListening = (listening) => micBtn.classList.toggle('listening', listening);
 
-  const config = getLiveConfig(getTools(), getFormattedDate);
-  const genAI = getGenAI();
+  const config = getLiveConfig(getTools());
+  // Gemini Live requires v1alpha for the Multimodal Live API.
+  const liveGenAI = new GoogleGenAI({ apiKey: localStorage.apiKey, httpOptions: { apiVersion: 'v1alpha' } });
   
   try {
-    liveSession = await genAI.live.connect({
-      model: localStorage.model,
+    liveSession = await liveGenAI.live.connect({
+      model: localStorage.liveModel,
       config: {
         systemInstruction: { parts: [{ text: config.systemInstruction.join('\n') }] },
         responseModalities: ['AUDIO'],
@@ -193,7 +197,7 @@ async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt, g
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
         realtimeInputConfig: { activityHandling: 'START_OF_ACTIVITY_INTERRUPTS' },
         tools: config.tools,
-        toolConfig: { functionCallingConfig: { mode: 'ANY' } }
+        toolConfig: { functionCallingConfig: { mode: 'AUTO' } }
       },
       callbacks: {
         onopen: async () => {
@@ -208,11 +212,11 @@ async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt, g
           }
         },
         onclose: (e) => {
-          logPrompt(`Live session closed.`);
+          logPrompt(`Live session closed. Reason: "${e.reason || 'No reason provided'}"`);
           stopLive(micBtn);
         },
         onerror: (err) => {
-          logPrompt(`Live session error: ${err}`);
+          logPrompt(`Live session error: ${err.message || err}`);
           stopLive(micBtn);
         },
         onmessage: (message) => {
@@ -220,23 +224,24 @@ async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt, g
           if (message.toolCall?.functionCalls) {
             const fcs = message.toolCall.functionCalls;
             (async () => {
-              const responses = await Promise.all(fcs.map(async (fc) => {
-                const toolPromise = executeTool(tab.id, fc.name, JSON.stringify(fc.args));
+              const responses = [];
+              for (const fc of fcs) {
                 logPrompt(`AI calling tool "${fc.name}"`);
                 try {
-                  const result = await toolPromise;
+                  const result = await executeTool(tab.id, fc.name, JSON.stringify(fc.args));
                   logPrompt(`Tool "${fc.name}" result: ${result}`);
-                  return { id: fc.id, name: fc.name, response: { result }, scheduling: 'SILENT' };
+                  responses.push({ id: fc.id, name: fc.name, response: { result }, scheduling: 'SILENT' });
                 } catch (e) {
                   logPrompt(`⚠️ Error executing tool "${fc.name}": ${e.message}`);
-                  return { id: fc.id, name: fc.name, response: { error: e.message }, scheduling: 'SILENT' };
+                  responses.push({ id: fc.id, name: fc.name, response: { error: e.message }, scheduling: 'SILENT' });
                 }
-              }));
+              }
               if (responses.length > 0 && liveSession) {
                 liveSession.sendToolResponse({ functionResponses: responses });
               }
             })();
           }
+
 
           // 2. Handle Audio
           if (message.serverContent?.modelTurn?.parts) {
@@ -294,22 +299,11 @@ function stopLive(micBtn) {
   micBtn.querySelector('.stop-icon').style.display = 'none';
 }
 
-function getLiveConfig(currentTools, getFormattedDate) {
-  const systemInstruction = [
-    'MODE: JSON_DRIVER. Identity: Internal Browser Controller.',
-    'RULES:',
-    '- TEXT_OUTPUT: DISABLED. Never emit text parts.',
-    '- PREAMBLES: FORBIDDEN. No "Considering", "Initiating", or bold markdown.',
-    '- ACTION: Execute tool immediately based on user intent.',
-    '- PERSONA: Robotic, silent, near-instant execution.',
-    'You are embedded in a browser tab.',
-    'User prompts refer to the current tab.',
-    'CRITICAL: Use tools for page content or interaction immediately.',
-    `Today's date is: ${getFormattedDate()}`,
-  ];
+function getLiveConfig(currentTools) {
+  const systemInstruction = getCommonSystemInstructions();
 
   // Map function declarations to their own tool entry
-  const tools = (currentTools || []).map((tool) => {
+  const tools = currentTools.map((tool) => {
     return {
       functionDeclarations: [{
         name: tool.name,
