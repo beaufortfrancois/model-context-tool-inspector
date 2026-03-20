@@ -4,7 +4,6 @@
  */
 
 import { GoogleGenAI } from './js-genai.js';
-import { getCommonSystemInstructions } from './sidebar.js';
 
 // Model definition for Gemini Live
 export const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
@@ -144,13 +143,13 @@ let liveSession = null;
 let audioScheduler = null;
 let micCapture = null;
 
-export async function initGeminiLive({ micBtn, apiKeyBtn, getGenAI, getTools, executeTool, logPrompt }) {
+export async function initGeminiLive({ micBtn, apiKeyBtn, getGenAI, getTools, executeTool, logPrompt, getFormattedDate }) {
   micBtn.onclick = async () => {
     if (!localStorage.apiKey) { apiKeyBtn.click(); return; }
     if (liveSession) {
       stopLive(micBtn);
     } else {
-      await startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt });
+      await startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt, getFormattedDate });
     }
   };
 
@@ -169,7 +168,7 @@ export async function initGeminiLive({ micBtn, apiKeyBtn, getGenAI, getTools, ex
   }
 }
 
-async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt }) {
+async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt, getFormattedDate }) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   micBtn.classList.add('active');
   micBtn.querySelector('.mic-icon').style.display = 'none';
@@ -181,7 +180,7 @@ async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt })
   micCapture = new MicCapture();
   micCapture.onListening = (listening) => micBtn.classList.toggle('listening', listening);
 
-  const config = getLiveConfig(getTools());
+  const config = getLiveConfig(getTools(), getFormattedDate);
   // Gemini Live requires v1alpha for the Multimodal Live API.
   const liveGenAI = new GoogleGenAI({ apiKey: localStorage.apiKey, httpOptions: { apiVersion: 'v1alpha' } });
   
@@ -294,8 +293,13 @@ function stopLive(micBtn) {
   micBtn.querySelector('.stop-icon').style.display = 'none';
 }
 
-function getLiveConfig(currentTools) {
-  const systemInstruction = getCommonSystemInstructions();
+function getLiveConfig(currentTools, getFormattedDate) {
+  const systemInstruction = [
+    'You are embedded in a browser tab.',
+    'User prompts refer to the current tab.',
+    'CRITICAL: Use tools for page content or interaction immediately.',
+    `Today's date is: ${getFormattedDate()}`,
+  ];
 
   // Map function declarations to their own tool entry
   const tools = currentTools.map((tool) => {

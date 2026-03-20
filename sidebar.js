@@ -374,6 +374,7 @@ initGeminiLive({
   getTools: () => currentTools,
   executeTool,
   logPrompt,
+  getFormattedDate,
 });
 
 // Utils
@@ -383,7 +384,7 @@ function logPrompt(text) {
   promptResults.scrollTop = promptResults.scrollHeight;
 }
 
-export function getFormattedDate() {
+function getFormattedDate() {
   const today = new Date();
   return today.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -393,18 +394,14 @@ export function getFormattedDate() {
   });
 }
 
-export function getCommonSystemInstructions() {
-  return [
+function getConfig() {
+  const systemInstruction = [
     'You are an assistant embedded in a browser tab.',
     'User prompts typically refer to the current tab unless stated otherwise.',
     'Use your tools to query page content when you need it.',
     `Today's date is: ${getFormattedDate()}`,
     'CRITICAL RULE: Whenever the user provides a relative date (e.g., "next Monday", "tomorrow", "in 3 days"),  you must calculate the exact calendar date based on today\'s date.',
   ];
-}
-
-function getConfig() {
-  const systemInstruction = getCommonSystemInstructions();
 
   const functionDeclarations = currentTools.map((tool) => {
     return {
