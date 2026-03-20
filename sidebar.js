@@ -37,7 +37,7 @@ const micBtn = document.getElementById('micBtn');
   }
 })();
 
-let currentTools = [];
+let currentTools;
 let userPromptPendingId = 0;
 let lastSuggestedUserPrompt = '';
 
@@ -64,6 +64,7 @@ async function handleToolMessage({ message, tools, url }, sender) {
     thead.innerHTML = '';
     toolNames.innerHTML = '';
 
+    const haveNewTools = JSON.stringify(currentTools) !== JSON.stringify(tools);
     currentTools = tools;
 
     if (toolsUpdateResolver) {
@@ -116,7 +117,7 @@ async function handleToolMessage({ message, tools, url }, sender) {
     });
     updateDefaultValueForInputArgs();
 
-    if (JSON.stringify(currentTools) !== JSON.stringify(tools)) suggestUserPrompt();
+    if (haveNewTools) suggestUserPrompt();
   }
 }
 
@@ -125,7 +126,7 @@ tbody.ondblclick = () => {
 };
 
 copyAsScriptToolConfig.onclick = async () => {
-  const text = currentTools
+  const text = (currentTools || [])
     .map((tool) => {
       return `\
 script_tools {
@@ -139,7 +140,7 @@ script_tools {
 };
 
 copyAsJSON.onclick = async () => {
-  const tools = currentTools.map((tool) => {
+  const tools = (currentTools || []).map((tool) => {
     return {
       name: tool.name,
       description: tool.description,
@@ -181,7 +182,7 @@ async function initGenAI() {
 initGenAI();
 
 async function suggestUserPrompt() {
-  if (currentTools.length == 0 || !genAI || userPromptText.value !== lastSuggestedUserPrompt)
+  if (!currentTools || currentTools.length == 0 || !genAI || userPromptText.value !== lastSuggestedUserPrompt)
     return;
   const userPromptId = ++userPromptPendingId;
   
@@ -393,7 +394,7 @@ function getConfig() {
     'CRITICAL RULE: Whenever the user provides a relative date (e.g., "next Monday", "tomorrow", "in 3 days"),  you must calculate the exact calendar date based on today\'s date.',
   ];
 
-  const functionDeclarations = currentTools.map((tool) => {
+  const functionDeclarations = (currentTools || []).map((tool) => {
     return {
       name: tool.name,
       description: tool.description,
