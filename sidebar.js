@@ -378,27 +378,9 @@ initGeminiLive({
 
 // Utils
 
-let logBuffer = [];
-let logPending = false;
-
 function logPrompt(text) {
-  // Defer logging and batch updates to avoid blocking main thread logic.
-  logBuffer.push(text);
-  
-  if (!logPending) {
-    logPending = true;
-    setTimeout(() => {
-      requestAnimationFrame(() => {
-        const fragment = document.createDocumentFragment();
-        while (logBuffer.length > 0) {
-          fragment.appendChild(document.createTextNode(`${logBuffer.shift()}\n`));
-        }
-        promptResults.appendChild(fragment);
-        promptResults.scrollTop = promptResults.scrollHeight;
-        logPending = false;
-      });
-    }, 0);
-  }
+  promptResults.textContent += `${text}\n`;
+  promptResults.scrollTop = promptResults.scrollHeight;
 }
 
 export function getFormattedDate() {
