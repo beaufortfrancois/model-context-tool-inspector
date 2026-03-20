@@ -247,7 +247,7 @@ async function promptAI() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   chat ??= genAI.chats.create({ 
     model: localStorage.model,
-    toolConfig: { functionCallingConfig: { mode: 'AUTO' } }
+    toolConfig: { functionCallingConfig: { mode: 'ANY' } }
   });
   const message = userPromptText.value;
   userPromptText.value = '';
@@ -274,33 +274,33 @@ async function promptAI() {
       finalResponseGiven = true;
     } else {
       // Prioritize tool calls over text logging
-      // Execute tool calls sequentially to handle potential dependencies.
+      const toolResponses = [];
+      const promises = functionCalls.map(async ({ name, args }) => {
+        const inputArgs = JSON.stringify(args);
+        const toolPromise = executeTool(tab.id, name, inputArgs);
+        logPrompt(`AI calling tool "${name}" with ${inputArgs}`);
+        try {
+          const result = await toolPromise;
+          logPrompt(`Tool "${name}" result: ${result}`);
+          return { functionResponse: { name, response: { result } } };
+        } catch (e) {
+          logPrompt(`⚠️ Error executing tool "${name}": ${e.message}`);
+          return { functionResponse: { name, response: { error: e.message } } };
+        }
+      });
+
       if (response.text) {
         logPrompt(`AI result: ${response.text.trim()}`);
       }
 
-      for (const { name, args } of functionCalls) {
-        const inputArgs = JSON.stringify(args);
-        logPrompt(`AI calling tool "${name}" with ${inputArgs}`);
-        try {
-          const result = await executeTool(tab.id, name, inputArgs);
-          logPrompt(`Tool "${name}" result: ${result}`);
-          toolResponses.push({ functionResponse: { name, response: { result } } });
-        } catch (e) {
-          logPrompt(`⚠️ Error executing tool "${name}": ${e.message}`);
-          toolResponses.push({ functionResponse: { name, response: { error: e.message } } });
-        }
-      }
+      const results = await Promise.all(promises);
+      toolResponses.push(...results);
       
-      // If a navigation occurred, wait for the page to load and tools to be registered.
+      // FIXME: New WebMCP tools may not be discovered if there's a navigation.
+      // We check if the tab is loading, but the artificial 500ms timeout is not robust enough.
       const [currentTab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (currentTab.status === 'loading') {
-        await Promise.race([
-          new Promise(resolve => { toolsUpdateResolver = resolve; }),
-          waitForPageLoad(currentTab.id),
-          new Promise(resolve => setTimeout(resolve, 2000))
-        ]);
-        toolsUpdateResolver = null;
+        await new Promise((r) => setTimeout(r, 500));
       }
 
       const sendMessageParams = { message: toolResponses, config: getConfig() };
