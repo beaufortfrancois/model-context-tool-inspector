@@ -44,15 +44,9 @@ let lastSuggestedUserPrompt = '';
 let toolsUpdateResolver;
 
 // Listen for the results coming back from content.js
-chrome.runtime.onMessage.addListener((msg, sender) => {
-  if (msg.tools || msg.message) {
-    handleToolMessage(msg, sender);
-  }
-});
-
-async function handleToolMessage({ message, tools, url }, sender) {
+chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!sender.tab || sender.tab.id !== tab?.id) return;
+  if (sender.tab && sender.tab.id !== tab?.id) return;
 
   if (message !== undefined) {
     statusDiv.textContent = message || '';
@@ -119,7 +113,7 @@ async function handleToolMessage({ message, tools, url }, sender) {
 
     if (haveNewTools) suggestUserPrompt();
   }
-}
+});
 
 tbody.ondblclick = () => {
   tbody.classList.toggle('prettify');
