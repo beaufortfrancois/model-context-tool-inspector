@@ -24,16 +24,30 @@ const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 const micBtn = document.getElementById('micBtn');
 
+if (!micBtn) console.error('Could not find micBtn in DOM');
+
 // Inject content script first.
 (async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
+    if (tab && tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file'))) {
+      let attempts = 0;
+      const send = async () => {
+        try {
+          await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
+        } catch (e) {
+          if (attempts++ < 5) setTimeout(send, 200 * attempts);
+        }
+      };
+      send();
+    } else {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = 'WebMCP tools are only available on web pages.';
+      statusDiv.hidden = false;
+      copyToClipboard.hidden = true;
+    }
   } catch (error) {
-    const statusDiv = document.getElementById('status');
-    statusDiv.textContent = error;
-    statusDiv.hidden = false;
-    copyToClipboard.hidden = true;
+    // Ignore initial connection errors
   }
 })();
 
@@ -41,12 +55,16 @@ let currentTools;
 let userPromptPendingId = 0;
 let lastSuggestedUserPrompt = '';
 
-let toolsUpdateResolver;
-
 // Listen for the results coming back from content.js
-chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg.tools || msg.message) {
+    handleToolMessage(msg, sender);
+  }
+});
+
+async function handleToolMessage({ message, tools, url }, sender) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (sender.tab && sender.tab.id !== tab?.id) return;
+  if (!sender.tab || sender.tab.id !== tab?.id) return;
 
   if (message !== undefined) {
     statusDiv.textContent = message || '';
@@ -60,11 +78,6 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
 
     const haveNewTools = JSON.stringify(currentTools) !== JSON.stringify(tools);
     currentTools = tools;
-
-    if (toolsUpdateResolver) {
-      toolsUpdateResolver();
-      toolsUpdateResolver = null;
-    }
 
     if (!tools || tools.length === 0) {
       const row = document.createElement('tr');
@@ -113,14 +126,14 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
 
     if (haveNewTools) suggestUserPrompt();
   }
-});
+}
 
 tbody.ondblclick = () => {
   tbody.classList.toggle('prettify');
 };
 
 copyAsScriptToolConfig.onclick = async () => {
-  const text = (currentTools || [])
+  const text = currentTools
     .map((tool) => {
       return `\
 script_tools {
@@ -134,7 +147,7 @@ script_tools {
 };
 
 copyAsJSON.onclick = async () => {
-  const tools = (currentTools || []).map((tool) => {
+  const tools = currentTools.map((tool) => {
     return {
       name: tool.name,
       description: tool.description,
@@ -150,24 +163,24 @@ copyAsJSON.onclick = async () => {
 
 let genAI, chat;
 
-const envModulePromise = import('./.env.json', { with: { type: 'json' } });
+const envModulePromise = import('./.env.json', { with: { type: 'json' } }).catch(() => ({ default: {} }));
 
 async function initGenAI() {
   let env;
   try {
-    // Try load .env.json if present.
-    env = (await envModulePromise).default;
-  } catch {}
+    const result = await envModulePromise;
+    env = result.default || {};
+  } catch {
+    env = {};
+  }
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
   
-  // Transition from old version or if it was accidentally set to the live model
-  if (!localStorage.model || localStorage.model.includes('gemini-2.0') || localStorage.model === MODEL) {
-    localStorage.model = 'gemini-2.5-flash';
+  if (!localStorage.model || localStorage.model.includes('gemini-2.0')) {
+    localStorage.model = MODEL;
   }
   
   if (localStorage.apiKey) {
-    // Default to v1beta for chat stability. Gemini Live will explicitly use v1alpha when connecting.
-    genAI = new GoogleGenAI({ apiKey: localStorage.apiKey, httpOptions: { apiVersion: 'v1beta' } });
+    genAI = new GoogleGenAI({ apiKey: localStorage.apiKey, httpOptions: { apiVersion: 'v1alpha' } });
   }
   
   promptBtn.disabled = !localStorage.apiKey;
@@ -228,9 +241,10 @@ let trace = [];
 
 async function promptAI() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-  chat ??= genAI.chats.create({ model: localStorage.model });
-
+  chat ??= genAI.chats.create({ 
+    model: localStorage.model,
+    toolConfig: { functionCallingConfig: { mode: 'ANY' } }
+  });
   const message = userPromptText.value;
   userPromptText.value = '';
   lastSuggestedUserPrompt = '';
@@ -359,14 +373,32 @@ initGeminiLive({
   getTools: () => currentTools,
   executeTool,
   logPrompt,
-  getFormattedDate,
+  getFormattedDate
 });
 
 // Utils
 
+let logBuffer = [];
+let logPending = false;
+
 function logPrompt(text) {
-  promptResults.textContent += `${text}\n`;
-  promptResults.scrollTop = promptResults.scrollHeight;
+  // Defer logging and batch updates to avoid blocking main thread logic.
+  logBuffer.push(text);
+  
+  if (!logPending) {
+    logPending = true;
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        const fragment = document.createDocumentFragment();
+        while (logBuffer.length > 0) {
+          fragment.appendChild(document.createTextNode(`${logBuffer.shift()}\n`));
+        }
+        promptResults.appendChild(fragment);
+        promptResults.scrollTop = promptResults.scrollHeight;
+        logPending = false;
+      });
+    }, 0);
+  }
 }
 
 function getFormattedDate() {
