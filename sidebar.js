@@ -245,10 +245,9 @@ let trace = [];
 
 async function promptAI() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  chat ??= genAI.chats.create({ 
-    model: localStorage.model,
-    toolConfig: { functionCallingConfig: { mode: 'ANY' } }
-  });
+
+  chat ??= genAI.chats.create({ model: localStorage.model });
+
   const message = userPromptText.value;
   userPromptText.value = '';
   lastSuggestedUserPrompt = '';
