@@ -4,7 +4,7 @@
  */
 
 import { GoogleGenAI } from './js-genai.js';
-import { initGeminiLive, MODEL } from './gemini-live.js';
+import { initGeminiLive } from './gemini-live.js';
 
 const statusDiv = document.getElementById('status');
 const tbody = document.getElementById('tableBody');
@@ -151,14 +151,8 @@ async function initGenAI() {
   } catch {}
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
 
-  // Transition from old version or if it was accidentally set to the live model
-  if (!localStorage.model || localStorage.model.includes('gemini-2.0') || localStorage.model === MODEL) {
-    localStorage.model = 'gemini-2.5-flash';
-  }
-
   if (localStorage.apiKey) {
-    // Default to v1beta for chat stability. Gemini Live will explicitly use v1alpha when connecting.
-    genAI = new GoogleGenAI({ apiKey: localStorage.apiKey, httpOptions: { apiVersion: 'v1beta' } });
+    genAI = new GoogleGenAI(localStorage.apiKey);
   }
   promptBtn.disabled = !localStorage.apiKey;
   resetBtn.disabled = !localStorage.apiKey;
