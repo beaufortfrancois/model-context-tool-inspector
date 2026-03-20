@@ -12,7 +12,7 @@ body {
 
 h2 {
   margin-top: 0;
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 
 button {
@@ -53,8 +53,8 @@ button:hover {
 
 #status {
   margin-top: 10px;
-  font-size: 12px;
-  min-height: 15px;
+  font-size: 0.75rem;
+  min-height: 1rem;
   color: red;
 }
 
@@ -75,7 +75,7 @@ button:hover {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 11px;
+  font-size: 0.6875rem;
   background: white;
 }
 
@@ -112,7 +112,7 @@ tr:nth-child(even) {
 label {
   display: block;
   margin-bottom: 6px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600; /* Matches th weight */
   color: #333;
 }
@@ -125,7 +125,7 @@ textarea, input {
   border-radius: 6px; /* Matches button/container radius */
   background-color: white;
   font-family: monospace;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: #333;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
