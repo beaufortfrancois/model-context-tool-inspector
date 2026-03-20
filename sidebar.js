@@ -170,20 +170,25 @@ let genAI, chat;
 const envModulePromise = import('./.env.json', { with: { type: 'json' } }).catch(() => ({ default: {} }));
 
 async function initGenAI() {
-  const env = (await envModulePromise).default || {};
-  if (env.apiKey) localStorage.apiKey ??= env.apiKey;
-  localStorage.model ??= env.model || 'gemini-2.5-flash';
-
+  let env;
+  try {
+    const result = await envModulePromise;
+    env = result.default || {};
+  } catch {
+    env = {};
+  }
+  if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
+  
   // Transition from old version or if it was accidentally set to the live model
-  if (localStorage.model.includes('gemini-2.0') || localStorage.model === MODEL) {
+  if (!localStorage.model || localStorage.model.includes('gemini-2.0') || localStorage.model === MODEL) {
     localStorage.model = 'gemini-2.5-flash';
   }
-
+  
   if (localStorage.apiKey) {
     // Default to v1beta for chat stability. Gemini Live will explicitly use v1alpha when connecting.
     genAI = new GoogleGenAI({ apiKey: localStorage.apiKey, httpOptions: { apiVersion: 'v1beta' } });
   }
-
+  
   promptBtn.disabled = !localStorage.apiKey;
   resetBtn.disabled = !localStorage.apiKey;
 }
