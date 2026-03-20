@@ -3,7 +3,7 @@
   "name": "WebMCP - Model Context Tool Inspector",
   "description": "Inspect, monitor, and execute WebMCP tools manually or with Gemini",
   "version": "1.9.2",
-  "permissions": ["sidePanel", "activeTab", "scripting"],
+  "permissions": ["sidePanel", "activeTab", "scripting", "offscreen"],
   "host_permissions": ["<all_urls>"],
   "update_url": "https://clients2.google.com/service/update2/crx",
   "action": {},
@@ -13,6 +13,12 @@
   "side_panel": {
     "default_path": "sidebar.html"
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["audio-processor.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
