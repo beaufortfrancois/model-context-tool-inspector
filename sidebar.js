@@ -28,24 +28,12 @@ const micBtn = document.getElementById('micBtn');
 (async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tab && tab.url && (tab.url.startsWith('http') || tab.url.startsWith('file'))) {
-      let attempts = 0;
-      const send = async () => {
-        try {
-          await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
-        } catch (e) {
-          if (attempts++ < 5) setTimeout(send, 200 * attempts);
-        }
-      };
-      send();
-    } else {
-      const statusDiv = document.getElementById('status');
-      statusDiv.textContent = 'WebMCP tools are only available on web pages.';
-      statusDiv.hidden = false;
-      copyToClipboard.hidden = true;
-    }
+    await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' });
   } catch (error) {
-    // Ignore initial connection errors
+    const statusDiv = document.getElementById('status');
+    statusDiv.textContent = error;
+    statusDiv.hidden = false;
+    copyToClipboard.hidden = true;
   }
 })();
 
