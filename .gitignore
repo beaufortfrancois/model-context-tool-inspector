@@ -1,2 +1,6 @@
 .env.json
 js-genai.js
+node_modules
+tests/
+webmcp-polyfill-page-runtime.js
+webmcp-polyfill-testing-client.js

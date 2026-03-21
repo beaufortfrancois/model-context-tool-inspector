@@ -13,7 +13,14 @@ chrome.runtime.onInstalled.addListener(async () => {
     chrome.scripting
       .executeScript({
         target: { tabId },
-        files: ['content.js'],
+        world: 'MAIN',
+        files: ['webmcp-polyfill-page-runtime.js'],
+      })
+      .catch(() => {});
+    chrome.scripting
+      .executeScript({
+        target: { tabId },
+        files: ['webmcp-polyfill-testing-client.js', 'content.js'],
       })
       .catch(() => {});
   });
