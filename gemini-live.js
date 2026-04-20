@@ -173,18 +173,18 @@ let liveSession = null;
 let audioScheduler = null;
 let micCapture = null;
 
-export async function initGeminiLive({ micBtn, apiKeyBtn, getTools, executeTool, logPrompt, getFormattedDate }) {
+export async function initGeminiLive({ micBtn, apiKeyBtn, getTools, executeTool, logPrompt, getFormattedDate, addToTrace }) {
   micBtn.onclick = async () => {
     if (!localStorage.apiKey) { apiKeyBtn.click(); return; }
     if (liveSession) {
       stopLive(micBtn);
     } else {
-      await startLive({ micBtn, getTools, executeTool, logPrompt, getFormattedDate });
+      await startLive({ micBtn, getTools, executeTool, logPrompt, getFormattedDate, addToTrace });
     }
   };
 }
 
-async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormattedDate }) {
+async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormattedDate, addToTrace }) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
   audioScheduler = new AudioScheduler();
@@ -232,11 +232,13 @@ async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormatte
           logPrompt(`Live session closed. Reason: "${e.reason || 'No reason provided'}"`);
           stopLive(micBtn);
         },
-        onerror: (err) => {
-          logPrompt(`Live session error: ${err.message || err}`);
+        onerror: (error) => {
+          addToTrace({ error });
+          logPrompt(`Live session error: ${error.message || error}`);
           stopLive(micBtn);
         },
         onmessage: (message) => {
+          addToTrace({ userPrompt: { message, config } });
           if (message.toolCall?.functionCalls) {
             const fcs = message.toolCall.functionCalls;
             (async () => {
@@ -253,6 +255,7 @@ async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormatte
                 }
               }
               if (responses.length > 0 && liveSession) {
+                addToTrace({ userPrompt: { message: responses, config } });
                 liveSession.sendToolResponse({ functionResponses: responses });
               }
             })();

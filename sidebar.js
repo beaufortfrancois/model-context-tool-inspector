@@ -340,6 +340,7 @@ initGeminiLive({
   executeTool,
   logPrompt,
   getFormattedDate,
+  addToTrace: (o) => trace.push(o),
 });
 
 // Utils
