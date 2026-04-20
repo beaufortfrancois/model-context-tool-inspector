@@ -5,12 +5,7 @@
 
 import { GoogleGenAI } from './js-genai.js';
 
-// Model definition for Gemini Live
-export const MODEL = 'gemini-2.5-flash-native-audio-preview-12-2025';
-
-if (!localStorage.liveModel || localStorage.liveModel.includes('gemini-2.0')) {
-  localStorage.liveModel = MODEL;
-}
+localStorage.liveModel ??= 'gemini-2.5-flash-native-audio-preview-12-2025';
 
 export class AudioScheduler {
   constructor() {
