@@ -335,7 +335,6 @@ function updateDefaultValueForInputArgs() {
 initGeminiLive({
   micBtn,
   apiKeyBtn,
-  getGenAI: () => genAI,
   getTools: () => currentTools,
   executeTool,
   logPrompt,

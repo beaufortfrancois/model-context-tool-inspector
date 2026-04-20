@@ -173,18 +173,18 @@ let liveSession = null;
 let audioScheduler = null;
 let micCapture = null;
 
-export async function initGeminiLive({ micBtn, apiKeyBtn, getGenAI, getTools, executeTool, logPrompt, getFormattedDate }) {
+export async function initGeminiLive({ micBtn, apiKeyBtn, getTools, executeTool, logPrompt, getFormattedDate }) {
   micBtn.onclick = async () => {
     if (!localStorage.apiKey) { apiKeyBtn.click(); return; }
     if (liveSession) {
       stopLive(micBtn);
     } else {
-      await startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt, getFormattedDate });
+      await startLive({ micBtn, getTools, executeTool, logPrompt, getFormattedDate });
     }
   };
 }
 
-async function startLive({ micBtn, getGenAI, getTools, executeTool, logPrompt, getFormattedDate }) {
+async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormattedDate }) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   
   audioScheduler = new AudioScheduler();
