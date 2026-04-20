@@ -4,22 +4,24 @@
  SPDX-License-Identifier: Apache-2.0
 -->
 <html>
+
 <head>
   <meta charset="utf-8">
   <title>Microphone Permission</title>
   <style>
-    body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-      display: flex; 
-      flex-direction: column; 
-      align-items: center; 
-      justify-content: center; 
-      height: 100vh; 
-      margin: 0; 
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
       text-align: center;
       background: #f3f4f6;
       color: #1f2937;
     }
+
     .card {
       background: white;
       padding: 24px;
@@ -28,8 +30,20 @@
       max-width: 300px;
       width: 90%;
     }
-    h1 { font-size: 18px; margin-top: 0; margin-bottom: 12px; }
-    p { font-size: 13px; color: #4b5563; margin-bottom: 20px; line-height: 1.4; }
+
+    h1 {
+      font-size: 18px;
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+
+    p {
+      font-size: 13px;
+      color: #4b5563;
+      margin-bottom: 20px;
+      line-height: 1.4;
+    }
+
     button {
       width: 100%;
       padding: 10px;
@@ -41,12 +55,27 @@
       font-weight: 600;
       font-size: 14px;
     }
-    button:hover { background-color: #1d4ed8; }
-    #status { margin-top: 15px; font-size: 12px; font-weight: 500; }
-    .error { color: #dc2626; }
-    .success { color: #059669; }
+
+    button:hover {
+      background-color: #1d4ed8;
+    }
+
+    #status {
+      margin-top: 15px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .error {
+      color: #dc2626;
+    }
+
+    .success {
+      color: #059669;
+    }
   </style>
 </head>
+
 <body>
   <div class="card">
     <h1>Microphone Access</h1>
@@ -56,4 +85,5 @@
   </div>
   <script src="mic-permission.js"></script>
 </body>
+
 </html>

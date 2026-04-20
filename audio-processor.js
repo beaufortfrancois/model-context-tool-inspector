@@ -31,7 +31,7 @@ class AudioProcessor extends AudioWorkletProcessor {
         // We use a TypedArray copy to avoid shared memory issues in some environments
         this.port.postMessage({
           type: 'audio',
-          data: new Float32Array(this.buffer)
+          data: new Float32Array(this.buffer),
         });
         this.bufferIndex = 0;
       }

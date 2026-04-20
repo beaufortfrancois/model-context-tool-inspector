@@ -53,14 +53,21 @@ class AudioScheduler {
   }
 
   clear() {
-    this.sources.forEach(source => {
+    this.sources.forEach((source) => {
       source.onended = null;
-      try { source.stop(); } catch { }
+      try {
+        source.stop();
+      } catch {}
     });
     this.sources.clear();
     this.nextStartTime = 0;
     this.onSpeaking?.(false);
-    if (this.ctx) { try { this.ctx.close(); } catch {} ; this.ctx = null; }
+    if (this.ctx) {
+      try {
+        this.ctx.close();
+      } catch {}
+      this.ctx = null;
+    }
   }
 }
 
@@ -91,8 +98,10 @@ class MicCapture {
       console.debug('[WebMCP] Mic permission status:', permissionStatus.state);
 
       if (permissionStatus.state !== 'granted') {
-        this.logPrompt('ℹ️ Microphone permission required. Opening a small window to request access...');
-        
+        this.logPrompt(
+          'ℹ️ Microphone permission required. Opening a small window to request access...',
+        );
+
         const url = chrome.runtime.getURL('mic-permission.html');
         await chrome.windows.create({
           url,
@@ -100,7 +109,7 @@ class MicCapture {
           width: 350,
           height: 250,
           focused: true,
-          state: 'normal' // This is key to preventing full-screen inheritance on macOS
+          state: 'normal', // This is key to preventing full-screen inheritance on macOS
         });
         throw new Error('Permission required');
       }
@@ -112,7 +121,7 @@ class MicCapture {
         await chrome.offscreen.createDocument({
           url: 'offscreen.html',
           reasons: ['USER_MEDIA'],
-          justification: 'Capture microphone for Gemini Live'
+          justification: 'Capture microphone for Gemini Live',
         });
       }
 
@@ -123,7 +132,7 @@ class MicCapture {
           await chrome.runtime.sendMessage({ target: 'offscreen', type: 'start-mic' });
         } catch (e) {
           if (attempts++ < 10) {
-            await new Promise(r => setTimeout(r, 100));
+            await new Promise((r) => setTimeout(r, 100));
             return sendStart();
           }
           throw e;
@@ -146,7 +155,7 @@ class MicCapture {
         await chrome.runtime.sendMessage({ target: 'offscreen', type: 'stop-mic' }).catch(() => {});
         await chrome.offscreen.closeDocument().catch(() => {});
       }
-    } catch (err) { }
+    } catch (err) {}
     if (this.listeningTimeout) clearTimeout(this.listeningTimeout);
     this.onListening?.(false);
   }
@@ -160,22 +169,33 @@ function decode(base64) {
 }
 
 function encode(bytes) {
-  let binary = "";
+  let binary = '';
   for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
   return btoa(binary);
 }
 
 function createBlob(data) {
-  return { data: encode(new Uint8Array(data)), mimeType: "audio/pcm;rate=16000" };
+  return { data: encode(new Uint8Array(data)), mimeType: 'audio/pcm;rate=16000' };
 }
 
 let liveSession = null;
 let audioScheduler = null;
 let micCapture = null;
 
-export async function initGeminiLive({ micBtn, apiKeyBtn, getTools, executeTool, logPrompt, getFormattedDate, addToTrace }) {
+export async function initGeminiLive({
+  micBtn,
+  apiKeyBtn,
+  getTools,
+  executeTool,
+  logPrompt,
+  getFormattedDate,
+  addToTrace,
+}) {
   micBtn.onclick = async () => {
-    if (!localStorage.apiKey) { apiKeyBtn.click(); return; }
+    if (!localStorage.apiKey) {
+      apiKeyBtn.click();
+      return;
+    }
     if (liveSession) {
       stopLive(micBtn);
     } else {
@@ -184,9 +204,16 @@ export async function initGeminiLive({ micBtn, apiKeyBtn, getTools, executeTool,
   };
 }
 
-async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormattedDate, addToTrace }) {
+async function startLive({
+  micBtn,
+  getTools,
+  executeTool,
+  logPrompt,
+  getFormattedDate,
+  addToTrace,
+}) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  
+
   audioScheduler = new AudioScheduler();
   audioScheduler.onSpeaking = (speaking) => micBtn.classList.toggle('speaking', speaking);
 
@@ -205,8 +232,11 @@ async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormatte
   micBtn.querySelector('.stop-icon').style.display = 'block';
 
   const config = getLiveConfig(getTools(), getFormattedDate);
-  const liveGenAI = new GoogleGenAI({ apiKey: localStorage.apiKey, httpOptions: { apiVersion: 'v1alpha' } });
-  
+  const liveGenAI = new GoogleGenAI({
+    apiKey: localStorage.apiKey,
+    httpOptions: { apiVersion: 'v1alpha' },
+  });
+
   try {
     liveSession = await liveGenAI.live.connect({
       model: localStorage.liveModel,
@@ -219,7 +249,7 @@ async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormatte
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
         realtimeInputConfig: { activityHandling: 'START_OF_ACTIVITY_INTERRUPTS' },
         tools: config.tools,
-        toolConfig: { functionCallingConfig: { mode: 'VALIDATED' } }
+        toolConfig: { functionCallingConfig: { mode: 'VALIDATED' } },
       },
       callbacks: {
         onopen: () => {
@@ -248,7 +278,11 @@ async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormatte
                 try {
                   const result = await executeTool(tab.id, fc.name, JSON.stringify(fc.args));
                   logPrompt(`Tool "${fc.name}" result: ${result}`);
-                  responses.push({ id: fc.id, name: fc.name, response: { result: result === undefined ? null : result } });
+                  responses.push({
+                    id: fc.id,
+                    name: fc.name,
+                    response: { result: result === undefined ? null : result },
+                  });
                 } catch (e) {
                   logPrompt(`⚠️ Error executing tool "${fc.name}": ${e.message}`);
                   responses.push({ id: fc.id, name: fc.name, response: { error: e.message } });
@@ -277,8 +311,8 @@ async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormatte
           if (message.serverContent?.interrupted) {
             audioScheduler.clear();
           }
-        }
-      }
+        },
+      },
     });
   } catch (error) {
     logPrompt(`⚠️ Error starting live: ${error.message}`);
@@ -288,7 +322,9 @@ async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormatte
 
 function stopLive(micBtn) {
   if (liveSession) {
-    try { liveSession.close(); } catch {}
+    try {
+      liveSession.close();
+    } catch {}
     liveSession = null;
   }
   if (micCapture) {
@@ -316,7 +352,9 @@ function getLiveConfig(currentTools, getFormattedDate) {
     return {
       name: tool.name,
       description: tool.description,
-      parametersJsonSchema: tool.inputSchema ? JSON.parse(tool.inputSchema) : { type: 'object', properties: {} },
+      parametersJsonSchema: tool.inputSchema
+        ? JSON.parse(tool.inputSchema)
+        : { type: 'object', properties: {} },
     };
   });
 

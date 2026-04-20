@@ -22,8 +22,8 @@ const traceBtn = document.getElementById('traceBtn');
 const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
-const micBtn = document.getElementById('micBtn');
 const advancedSection = document.getElementById('advancedSection');
+const micBtn = document.getElementById('micBtn');
 
 // Inject content script first.
 (async () => {
@@ -152,7 +152,6 @@ async function initGenAI() {
     env = (await envModulePromise).default;
   } catch {}
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
-
   localStorage.model ??= env?.model || 'gemini-2.5-flash';
   genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
   promptBtn.disabled = !localStorage.apiKey;

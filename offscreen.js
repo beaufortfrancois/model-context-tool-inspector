@@ -38,11 +38,11 @@ async function startMic() {
         for (let i = 0; i < float32Data.length; i++) {
           // Clamp and map Float32 to Int16
           const s = Math.max(-1, Math.min(1, float32Data[i]));
-          int16Data[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+          int16Data[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
         }
         chrome.runtime.sendMessage({
           type: 'audio-data',
-          data: Array.from(new Uint8Array(int16Data.buffer))
+          data: Array.from(new Uint8Array(int16Data.buffer)),
         });
       }
     };
@@ -59,7 +59,7 @@ function stopMic() {
     worklet = null;
   }
   if (stream) {
-    stream.getTracks().forEach(t => t.stop());
+    stream.getTracks().forEach((t) => t.stop());
     stream = null;
   }
   if (ctx) {
