@@ -13,12 +13,6 @@
   "side_panel": {
     "default_path": "sidebar.html"
   },
-  "web_accessible_resources": [
-    {
-      "resources": ["audio-processor.js"],
-      "matches": ["<all_urls>"]
-    }
-  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
