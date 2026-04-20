@@ -23,6 +23,7 @@ const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 const micBtn = document.getElementById('micBtn');
+const advancedSection = document.getElementById('advancedSection');
 
 // Inject content script first.
 (async () => {
@@ -151,13 +152,22 @@ async function initGenAI() {
   } catch {}
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
 
-  if (localStorage.apiKey) {
-    genAI = new GoogleGenAI(localStorage.apiKey);
-  }
+  localStorage.model ??= env?.model || 'gemini-2.5-flash';
+  genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
   promptBtn.disabled = !localStorage.apiKey;
   resetBtn.disabled = !localStorage.apiKey;
+  apiKeyBtn.textContent = localStorage.apiKey ? 'Update Gemini API key' : 'Set Gemini API key';
 }
-initGenAI();
+await initGenAI();
+
+document.querySelectorAll('input[name="model"]').forEach((radio) => {
+  radio.checked = radio.value === localStorage.model;
+  radio.onclick = () => {
+    localStorage.model = radio.value;
+    chat = undefined;
+    advancedSection.hidePopover();
+  };
+});
 
 async function suggestUserPrompt() {
   if (currentTools.length == 0 || !genAI || userPromptText.value !== lastSuggestedUserPrompt)
@@ -272,7 +282,7 @@ resetBtn.onclick = () => {
 };
 
 apiKeyBtn.onclick = async () => {
-  const apiKey = prompt('Enter Gemini API key');
+  const apiKey = prompt('Enter Gemini API key', localStorage.apiKey);
   if (apiKey == null) return;
   localStorage.apiKey = apiKey;
   await initGenAI();

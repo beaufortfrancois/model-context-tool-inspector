@@ -68,6 +68,7 @@ button:hover {
   max-height: 400px;
   display: block;
 }
+
 .table-container:has(tbody.prettify) {
   max-height: fit-content;
 }
@@ -96,6 +97,7 @@ th {
 tr:last-child td {
   border-bottom: none;
 }
+
 tr:nth-child(even) {
   background-color: #fcfcfc;
 }
@@ -109,25 +111,39 @@ tr:nth-child(even) {
   margin-bottom: 10px;
 }
 
+.label-with-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
 label {
   display: block;
   margin-bottom: 6px;
   font-size: 0.75rem;
-  font-weight: 600; /* Matches th weight */
+  font-weight: 600;
+  /* Matches th weight */
   color: #333;
 }
 
 select,
-textarea, input {
+textarea,
+input {
   width: 100%;
-  padding: 8px 10px; /* Matches button padding logic */
-  border: 1px solid #e5e7eb; /* Matches table border */
-  border-radius: 6px; /* Matches button/container radius */
+  padding: 8px 10px;
+  /* Matches button padding logic */
+  border: 1px solid #e5e7eb;
+  /* Matches table border */
+  border-radius: 6px;
+  /* Matches button/container radius */
   background-color: white;
   font-family: monospace;
   font-size: 0.8125rem;
   color: #333;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 #userPromptText {
@@ -151,12 +167,14 @@ select {
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 14px;
-  padding-right: 30px; /* Make space for the arrow */
+  padding-right: 30px;
+  /* Make space for the arrow */
   cursor: pointer;
 }
 
 textarea {
-  resize: vertical; /* Allow height resize only */
+  resize: vertical;
+  /* Allow height resize only */
   min-height: 70px;
   line-height: 1.4;
 }
@@ -197,6 +215,7 @@ button:disabled {
 tbody pre {
   white-space: normal;
 }
+
 tbody.prettify pre {
   white-space: pre-wrap;
 }
@@ -217,19 +236,6 @@ tbody.prettify pre {
   transform: rotate(-90deg);
 }
 
-.is-hidden {
-  display: none;
-}
-
-/* Mic Button & Gemini Live specific styles */
-
-.label-with-button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative;
-}
-
 .icon-btn {
   background: none;
   border: none;
@@ -248,30 +254,173 @@ tbody.prettify pre {
   top: -4px;
 }
 
-.icon-btn:hover { background-color: rgba(66, 133, 244, 0.1); }
-.icon-btn svg { pointer-events: none; width: 18px; height: 18px; }
+#micBtn:hover,
+#micBtn:focus-visible,
+.icon-btn:hover,
+.icon-btn:focus-visible {
+  background-color: #f3f4f6;
+  color: #333;
+  outline: 2px solid #2563eb;
+  outline-offset: -2px;
+}
+
+.is-hidden {
+  display: none;
+}
+
+/* Mic Button & Gemini Live specific styles */
+
+/* .label-with-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+} */
+/* 
+.icon-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  width: 24px;
+  height: 24px;
+  color: #5f6368;
+  position: absolute;
+  right: 0;
+  top: -4px;
+} */
+
+/* .icon-btn:hover { background-color: rgba(66, 133, 244, 0.1); } */
+.icon-btn svg {
+  pointer-events: none;
+  width: 18px;
+  height: 18px;
+}
 
 @keyframes pulse-glow {
-  0% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(66, 133, 244, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(66, 133, 244, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(66, 133, 244, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(66, 133, 244, 0);
+  }
 }
 
 @keyframes listening-glow {
-  0% { box-shadow: 0 0 0 0 rgba(52, 168, 83, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(52, 168, 83, 0.2); }
-  100% { box-shadow: 0 0 0 0 rgba(52, 168, 83, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 168, 83, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(52, 168, 83, 0.2);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 168, 83, 0);
+  }
 }
 
 @keyframes speaking-glow {
-  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4); }
-  50% { transform: scale(1.1); box-shadow: 0 0 0 12px rgba(234, 67, 53, 0); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(234, 67, 53, 0); }
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4);
+  }
+
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 12px rgba(234, 67, 53, 0);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0);
+  }
 }
 
-#micBtn.active { color: #ea4335; animation: pulse-glow 2s infinite; }
-#micBtn.listening { color: #34a853; animation: listening-glow 1s infinite !important; }
-#micBtn.speaking { color: #4285f4; animation: speaking-glow 0.8s infinite !important; }
+#micBtn {
+  background: none;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  width: 24px;
+  height: 24px;
+  color: #5f6368;
+  position: absolute;
+  top: -4px;
+}
+
+#micBtn.active {
+  color: #ea4335;
+  animation: pulse-glow 2s infinite;
+}
+
+#micBtn.listening {
+  color: #34a853;
+  animation: listening-glow 1s infinite !important;
+}
+
+#micBtn.speaking {
+  color: #4285f4;
+  animation: speaking-glow 0.8s infinite !important;
+}
+
+.menu-label {
+  font-weight: bold;
+  padding: 8px 10px 4px 10px;
+  font-size: 0.625rem;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+dialog {
+  padding: 4px 0;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
+  background-color: white;
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 10%);
+}
+
+.model-option {
+  width: 100%;
+  padding: 8px 10px;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: normal;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #333;
+  background: none;
+  border: none;
+  border-radius: 0;
+  text-align: left;
+  transition: background-color 0.2s;
+}
+
+.model-option:hover {
+  background-color: #f3f4f6;
+}
+
+.model-option input[type='radio'] {
+  width: auto;
+}
 
 @media (prefers-color-scheme: dark) {
   body {
@@ -279,7 +428,8 @@ tbody.prettify pre {
     color: #e5e5e5;
   }
 
-  h2, label {
+  h2,
+  label {
     color: #e5e5e5;
   }
 
@@ -289,6 +439,28 @@ tbody.prettify pre {
     background-color: #1e1e1e;
     border-color: #404040;
     color: #fff;
+  }
+
+  dialog {
+    background-color: #1e1e1e;
+    border-color: #404040;
+    color: #fff;
+  }
+
+  dialog::backdrop {
+    background: rgb(0 0 0 / 75%);
+  }
+
+  .model-option {
+    color: #d4d4d4;
+  }
+
+  .model-option:hover {
+    background-color: #262626;
+  }
+
+  .menu-label {
+    color: #a3a3a3;
   }
 
   select:focus,
@@ -321,16 +493,19 @@ tbody.prettify pre {
   }
 
   th {
-    background-color: #262626; /* Darker header */
+    background-color: #262626;
+    /* Darker header */
     color: #fff;
   }
 
   tr:nth-child(even) {
-    background-color: #232323; /* Subtle zebra striping */
+    background-color: #232323;
+    /* Subtle zebra striping */
   }
 
   button {
-    background-color: #2563eb; /* Keep brand color, or shift to #3b82f6 */
+    background-color: #2563eb;
+    /* Keep brand color, or shift to #3b82f6 */
     color: #fff;
   }
 
@@ -339,7 +514,8 @@ tbody.prettify pre {
   }
 
   .secondary {
-    color: #60a5fa; /* Lighter blue for text readability */
+    color: #60a5fa;
+    /* Lighter blue for text readability */
     outline-color: #60a5fa;
   }
 
@@ -363,10 +539,21 @@ tbody.prettify pre {
   }
 
   #status {
-    color: #f87171; /* Lighter red for readability on dark */
+    color: #f87171;
+    /* Lighter red for readability on dark */
   }
 
+  #micBtn,
   .icon-btn {
     color: #bdc1c6;
+  }
+
+  #micBtn:hover,
+  #micBtn:focus-visible,
+  .icon-btn:hover,
+  .icon-btn:focus-visible {
+    background-color: #262626;
+    color: #fff;
+    outline-color: #3b82f6;
   }
 }
