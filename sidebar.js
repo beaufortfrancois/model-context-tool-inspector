@@ -45,6 +45,7 @@ let lastSuggestedUserPrompt = '';
 
 // Listen for the results coming back from content.js
 chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
+  if (!message && !tools) return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (sender.tab && sender.tab.id !== tab.id) return;
 
