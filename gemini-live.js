@@ -219,7 +219,7 @@ async function startLive({ micBtn, getTools, executeTool, logPrompt, getFormatte
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
         realtimeInputConfig: { activityHandling: 'START_OF_ACTIVITY_INTERRUPTS' },
         tools: config.tools,
-        toolConfig: { functionCallingConfig: { mode: 'AUTO' } }
+        toolConfig: { functionCallingConfig: { mode: 'VALIDATED' } }
       },
       callbacks: {
         onopen: () => {
