@@ -4,6 +4,7 @@
  */
 
 import { GoogleGenAI } from './js-genai.js';
+import { initGeminiLive } from './gemini-live.js';
 
 const statusDiv = document.getElementById('status');
 const tbody = document.getElementById('tableBody');
@@ -22,6 +23,7 @@ const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 const advancedSection = document.getElementById('advancedSection');
+const micBtn = document.getElementById('micBtn');
 
 // Inject content script first.
 (async () => {
@@ -43,6 +45,7 @@ let lastSuggestedUserPrompt = '';
 
 // Listen for the results coming back from content.js
 chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
+  if (!message && !tools) return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (sender.tab && sender.tab.id !== tab.id) return;
 
@@ -327,6 +330,17 @@ function updateDefaultValueForInputArgs() {
   const template = generateTemplateFromSchema(JSON.parse(inputSchema));
   inputArgsText.value = JSON.stringify(template, '', ' ');
 }
+
+// Initialize Gemini Live
+initGeminiLive({
+  micBtn,
+  apiKeyBtn,
+  getTools: () => currentTools,
+  executeTool,
+  logPrompt,
+  getFormattedDate,
+  addToTrace: (o) => trace.push(o),
+});
 
 // Utils
 

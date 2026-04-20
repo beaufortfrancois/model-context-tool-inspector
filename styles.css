@@ -68,6 +68,7 @@ button:hover {
   max-height: 400px;
   display: block;
 }
+
 .table-container:has(tbody.prettify) {
   max-height: fit-content;
 }
@@ -96,6 +97,7 @@ th {
 tr:last-child td {
   border-bottom: none;
 }
+
 tr:nth-child(even) {
   background-color: #fcfcfc;
 }
@@ -120,21 +122,28 @@ label {
   display: block;
   margin-bottom: 6px;
   font-size: 0.75rem;
-  font-weight: 600; /* Matches th weight */
+  font-weight: 600;
+  /* Matches th weight */
   color: #333;
 }
 
 select,
-textarea, input {
+textarea,
+input {
   width: 100%;
-  padding: 8px 10px; /* Matches button padding logic */
-  border: 1px solid #e5e7eb; /* Matches table border */
-  border-radius: 6px; /* Matches button/container radius */
+  padding: 8px 10px;
+  /* Matches button padding logic */
+  border: 1px solid #e5e7eb;
+  /* Matches table border */
+  border-radius: 6px;
+  /* Matches button/container radius */
   background-color: white;
   font-family: monospace;
   font-size: 0.8125rem;
   color: #333;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 #userPromptText {
@@ -158,12 +167,14 @@ select {
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 14px;
-  padding-right: 30px; /* Make space for the arrow */
+  padding-right: 30px;
+  /* Make space for the arrow */
   cursor: pointer;
 }
 
 textarea {
-  resize: vertical; /* Allow height resize only */
+  resize: vertical;
+  /* Allow height resize only */
   min-height: 70px;
   line-height: 1.4;
 }
@@ -204,6 +215,7 @@ button:disabled {
 tbody pre {
   white-space: normal;
 }
+
 tbody.prettify pre {
   white-space: pre-wrap;
 }
@@ -242,6 +254,8 @@ tbody.prettify pre {
   top: -4px;
 }
 
+#micBtn:hover,
+#micBtn:focus-visible,
 .icon-btn:hover,
 .icon-btn:focus-visible {
   background-color: #f3f4f6;
@@ -252,6 +266,84 @@ tbody.prettify pre {
 
 .is-hidden {
   display: none;
+}
+
+.icon-btn svg {
+  pointer-events: none;
+  width: 18px;
+  height: 18px;
+}
+
+@keyframes pulse-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.4);
+  }
+
+  70% {
+    box-shadow: 0 0 0 10px rgba(66, 133, 244, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(66, 133, 244, 0);
+  }
+}
+
+@keyframes listening-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 168, 83, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 0 8px rgba(52, 168, 83, 0.2);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 168, 83, 0);
+  }
+}
+
+@keyframes speaking-glow {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4);
+  }
+
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 12px rgba(234, 67, 53, 0);
+  }
+
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(234, 67, 53, 0);
+  }
+}
+
+#micBtn {
+  background: none;
+  padding: 4px;
+  border-radius: 50%;
+  transition: all 0.2s;
+  width: 24px;
+  height: 24px;
+  color: #5f6368;
+  position: absolute;
+  top: -4px;
+}
+
+#micBtn.active {
+  color: #ea4335;
+  animation: pulse-glow 2s infinite;
+}
+
+#micBtn.listening {
+  color: #34a853;
+  animation: listening-glow 1s infinite !important;
+}
+
+#micBtn.speaking {
+  color: #4285f4;
+  animation: speaking-glow 0.8s infinite !important;
 }
 
 .menu-label {
@@ -267,7 +359,9 @@ dialog {
   padding: 4px 0;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
   background-color: white;
 }
 
@@ -296,7 +390,7 @@ dialog::backdrop {
   background-color: #f3f4f6;
 }
 
-.model-option input[type="radio"] {
+.model-option input[type='radio'] {
   width: auto;
 }
 
@@ -306,7 +400,8 @@ dialog::backdrop {
     color: #e5e5e5;
   }
 
-  h2, label {
+  h2,
+  label {
     color: #e5e5e5;
   }
 
@@ -370,16 +465,19 @@ dialog::backdrop {
   }
 
   th {
-    background-color: #262626; /* Darker header */
+    background-color: #262626;
+    /* Darker header */
     color: #fff;
   }
 
   tr:nth-child(even) {
-    background-color: #232323; /* Subtle zebra striping */
+    background-color: #232323;
+    /* Subtle zebra striping */
   }
 
   button {
-    background-color: #2563eb; /* Keep brand color, or shift to #3b82f6 */
+    background-color: #2563eb;
+    /* Keep brand color, or shift to #3b82f6 */
     color: #fff;
   }
 
@@ -388,7 +486,8 @@ dialog::backdrop {
   }
 
   .secondary {
-    color: #60a5fa; /* Lighter blue for text readability */
+    color: #60a5fa;
+    /* Lighter blue for text readability */
     outline-color: #60a5fa;
   }
 
@@ -412,9 +511,17 @@ dialog::backdrop {
   }
 
   #status {
-    color: #f87171; /* Lighter red for readability on dark */
+    color: #f87171;
+    /* Lighter red for readability on dark */
   }
 
+  #micBtn,
+  .icon-btn {
+    color: #bdc1c6;
+  }
+
+  #micBtn:hover,
+  #micBtn:focus-visible,
   .icon-btn:hover,
   .icon-btn:focus-visible {
     background-color: #262626;
