@@ -7,7 +7,7 @@ import { GoogleGenAI } from './js-genai.js';
 
 localStorage.liveModel ??= 'gemini-2.5-flash-native-audio-preview-12-2025';
 
-export class AudioScheduler {
+class AudioScheduler {
   constructor() {
     this.ctx = null;
     this.sources = new Set();
@@ -64,7 +64,7 @@ export class AudioScheduler {
   }
 }
 
-export class MicCapture {
+class MicCapture {
   constructor(logPrompt) {
     this.logPrompt = logPrompt;
     this.onAudioData = null;
