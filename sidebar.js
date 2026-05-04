@@ -97,7 +97,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
     const option = document.createElement('option');
     option.textContent = `"${item.name}"`;
     option.value = item.name;
-    option.dataset.inputSchema = item.inputSchema;
+    option.dataset.inputSchema = item.inputSchema || '{}';
     toolNames.appendChild(option);
   });
   updateDefaultValueForInputArgs();

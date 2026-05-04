@@ -12,7 +12,11 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs }, _, reply) => 
     }
     if (action == 'LIST_TOOLS') {
       listTools();
-      if ('ontoolchange' in navigator.modelContextTesting.__proto__) {
+      if ('ontoolchange' in navigator.modelContext) {
+        navigator.modelContext.addEventListener('toolchange', listTools);
+        return;
+      }
+      if ('ontoolchange' in navigator.modelContextTesting) {
         navigator.modelContextTesting.addEventListener('toolchange', listTools);
         return;
       }
@@ -57,8 +61,13 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs }, _, reply) => 
   }
 });
 
-function listTools() {
-  const tools = navigator.modelContextTesting.listTools();
+async function listTools() {
+  let tools;
+  if ('getTools' in navigator.modelContext) {
+    tools = await navigator.modelContext.getTools();
+  } else {
+    tools = navigator.modelContextTesting.listTools();
+  }
   console.debug(`[WebMCP] Got ${tools.length} tools`, tools);
   chrome.runtime.sendMessage({ tools, url: location.href });
 }
