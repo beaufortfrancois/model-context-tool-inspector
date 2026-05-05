@@ -74,7 +74,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
   executeBtn.disabled = false;
   copyToClipboard.hidden = false;
 
-  const keys = Object.keys(tools[0]);
+  const keys = [...new Set(tools.flatMap((tool) => Object.keys(tool)))];
   keys.forEach((key) => {
     const th = document.createElement('th');
     th.textContent = key;
@@ -88,7 +88,11 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
       try {
         td.innerHTML = `<pre>${JSON.stringify(JSON.parse(item[key]), '', '  ')}</pre>`;
       } catch (error) {
-        td.textContent = item[key];
+        if (typeof item[key] === 'object' && item[key] !== null) {
+          td.innerHTML = `<pre>${JSON.stringify(item[key], '', '  ')}</pre>`;
+        } else {
+          td.textContent = item[key];
+        }
       }
       row.appendChild(td);
     });
