@@ -149,7 +149,7 @@ async function initGenAI() {
     env = (await envModulePromise).default;
   } catch {}
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
-  localStorage.model ??= env?.model || 'gemini-2.5-flash';
+  localStorage.model ??= env?.model || 'gemini-3-flash-preview';
   genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
   promptBtn.disabled = !localStorage.apiKey;
   resetBtn.disabled = !localStorage.apiKey;
@@ -349,9 +349,10 @@ function getConfig() {
   const systemInstruction = [
     'You are an assistant embedded in a browser tab.',
     'User prompts typically refer to the current tab unless stated otherwise.',
-    'Use your tools to query page content when you need it.',
+    'Use the provided tools to query page content when you need it.',
     `Today's date is: ${getFormattedDate()}`,
     'CRITICAL RULE: Whenever the user provides a relative date (e.g., "next Monday", "tomorrow", "in 3 days"),  you must calculate the exact calendar date based on today\'s date.',
+    'CRITICAL RULE: Do not try to use other tools than the available ones.',
   ];
 
   const functionDeclarations = currentTools.map((tool) => {
