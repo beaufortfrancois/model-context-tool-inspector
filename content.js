@@ -78,6 +78,8 @@ async function listTools() {
       return {
         description: tool.description,
         inputSchema: tool.inputSchema,
+        readOnlyHint: tool.annotations?.readOnlyHint ? '✓' : undefined,
+        untrustedContentHint: tool.annotations?.untrustedContentHint ? '✓' : undefined,
         name: tool.name,
         location: tool.window.location.href,
       };

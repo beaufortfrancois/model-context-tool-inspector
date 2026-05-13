@@ -75,9 +75,18 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
   executeBtn.disabled = false;
   copyToClipboard.hidden = false;
 
-  const keys = Object.keys(tools[0]);
+  const KEYS = [
+    'description',
+    'inputSchema',
+    'readOnlyHint',
+    'untrustedContentHint',
+    'name',
+  ];
+  let keys = [...new Set(tools.flatMap((tool) => Object.keys(tool)))];
+  keys = [...keys].sort((a, b) => {
+    return KEYS.indexOf(a) - KEYS.indexOf(b);
+  });
   keys.forEach((key) => {
-    if (key === 'location') return;
     const th = document.createElement('th');
     th.textContent = key;
     thead.appendChild(th);
@@ -86,7 +95,6 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
   tools.forEach((item) => {
     const row = document.createElement('tr');
     keys.forEach((key) => {
-      if (key === 'location') return;
       const td = document.createElement('td');
       try {
         td.innerHTML = `<pre>${JSON.stringify(JSON.parse(item[key]), '', '  ')}</pre>`;
