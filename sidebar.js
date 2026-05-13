@@ -253,19 +253,19 @@ async function promptAI() {
       finalResponseGiven = true;
     } else {
       const toolResponses = [];
-      for (const { name: name, args } of functionCalls) {
-        const [locationIndex, toolName] = name.split(/_(.*)/s)[1].split(/_(.*)/s);
+      for (const { name: toolName, args } of functionCalls) {
+        const [locationIndex, name] = toolName.split(/_(.*)/s)[1].split(/_(.*)/s);
         const location = currentTools[locationIndex].location;
         const inputArgs = JSON.stringify(args);
-        logPrompt(`AI calling tool "${toolName}" with ${inputArgs}`);
+        logPrompt(`AI calling tool "${name}" with ${inputArgs}`);
         try {
-          const result = await executeTool(tab.id, toolName, inputArgs, location);
-          toolResponses.push({ functionResponse: { name, response: { result } } });
-          logPrompt(`Tool "${toolName}" result: ${result}`);
+          const result = await executeTool(tab.id, name, inputArgs, location);
+          toolResponses.push({ functionResponse: { name: toolName, response: { result } } });
+          logPrompt(`Tool "${name}" result: ${result}`);
         } catch (e) {
-          logPrompt(`⚠️ Error executing tool "${toolName}": ${e.message}`);
+          logPrompt(`⚠️ Error executing tool "${name}": ${e.message}`);
           toolResponses.push({
-            functionResponse: { name, response: { error: e.message } },
+            functionResponse: { name: toolName, response: { error: e.message } },
           });
         }
       }
