@@ -300,6 +300,31 @@ dialog::backdrop {
   width: auto;
 }
 
+/* Voice Control */
+.voice-status {
+  font-size: 0.75rem;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.voice-result {
+  margin-top: 8px;
+  padding: 6px 8px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  min-height: 1.5rem;
+  color: #111;
+  word-break: break-all;
+}
+
+@media (prefers-color-scheme: dark) {
+  .voice-result {
+    background: #262626;
+    color: #e5e5e5;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #121212;

@@ -34,6 +34,20 @@
       <h2 class="collapsible-header">Interact with the Page</h2>
       <div class="section-content">
 
+      <!-- Voice Control -->
+      <div class="form-group">
+        <div class="label-with-button">
+          <label>Voice Input (AmiVoice)</label>
+          <button id="amivoiceKeyBtn" class="secondary" style="position:static;width:auto;height:auto;font-size:0.7rem;padding:4px 8px;">Set APPKEY</button>
+        </div>
+        <div id="voiceStatus" class="voice-status">待機中</div>
+        <div style="display:flex;gap:6px;margin-top:6px;">
+          <button id="voiceStartBtn" class="secondary" disabled>🎙 Start</button>
+          <button id="voiceStopBtn" class="secondary" disabled>■ Stop</button>
+        </div>
+        <div id="voiceResult" class="voice-result"></div>
+      </div>
+
       <div class="form-group">
         <div class="label-with-button">
           <label for="userPromptText">User Prompt</label>
@@ -61,6 +75,7 @@
         <button id="traceBtn" class="secondary">Copy trace</button>
       </div>
 
+
       <pre id="promptResults"></pre>
 
       <div class="form-group">
@@ -81,5 +96,6 @@
       </div>
     </div>
     <script type="module" src="sidebar.js"></script>
+    <script type="module" src="voice.js"></script>
   </body>
 </html>
