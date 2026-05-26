@@ -159,6 +159,9 @@ async function initGenAI() {
   if (localStorage.model === 'gemini-2.5-flash') {
     localStorage.model = 'gemini-3-flash-preview';
   }
+  if (localStorage.model === 'gemini-3.1-flash-lite-preview') {
+    localStorage.model = 'gemini-3.1-flash-lite';
+  }
   localStorage.model ??= env?.model || 'gemini-3-flash-preview';
   genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
   promptBtn.disabled = !localStorage.apiKey;
