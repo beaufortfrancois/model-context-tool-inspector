@@ -330,20 +330,19 @@ pre.json {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-pre.json .json-key {
+pre.json .hljs-attr {
   color: #0451a5;
 }
 
-pre.json .json-string {
+pre.json .hljs-string {
   color: #a31515;
 }
 
-pre.json .json-number {
+pre.json .hljs-number {
   color: #098658;
 }
 
-pre.json .json-boolean,
-pre.json .json-null {
+pre.json .hljs-literal {
   color: #0000ff;
 }
 
@@ -388,20 +387,19 @@ pre.json .json-null {
     border-color: #333;
   }
 
-  pre.json .json-key {
+  pre.json .hljs-attr {
     color: #9cdcfe;
   }
 
-  pre.json .json-string {
+  pre.json .hljs-string {
     color: #ce9178;
   }
 
-  pre.json .json-number {
+  pre.json .hljs-number {
     color: #b5cea8;
   }
 
-  pre.json .json-boolean,
-  pre.json .json-null {
+  pre.json .hljs-literal {
     color: #569cd6;
   }
 

@@ -15,6 +15,13 @@ async function loadGoogleGenAI() {
   return GoogleGenAI;
 }
 
+// highlight.js bundle (also produced by `npm install`), loaded lazily.
+let hljs;
+async function loadHljs() {
+  if (!hljs) ({ default: hljs } = await import('./hljs.js'));
+  return hljs;
+}
+
 const statusDiv = document.getElementById('status');
 const tbody = document.getElementById('tableBody');
 const thead = document.getElementById('tableHeaderRow');
@@ -86,7 +93,9 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
   executeBtn.disabled = false;
   copyToClipboard.hidden = false;
 
-  const KEYS = ['description', 'inputSchema', 'readOnlyHint', 'untrustedContentHint', 'name'];
+  await loadHljs().catch(() => {});
+
+  const KEYS = ['name', 'description', 'inputSchema', 'readOnlyHint', 'untrustedContentHint'];
   const keys = KEYS.filter((key) => tools.some((tool) => key in tool));
   keys.forEach((key) => {
     const th = document.createElement('th');
@@ -450,23 +459,12 @@ function updateDefaultValueForInputArgs() {
 
 // Utils
 
-// Wrap JSON tokens in spans so styles.css can color them like an editor.
-// Also HTML-escapes, so it's safe to drop into innerHTML.
+// highlight.js (core + json grammar) is bundled to hljs.js by `npm install`.
+// Returns editor-colored HTML, falling back to escaped plain text when the
+// bundle is absent.
 function highlightJSON(json) {
-  const escaped = json
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-  return escaped.replace(
-    /("(?:\\.|[^"\\])*"(\s*:)?)|\b(true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g,
-    (match, str, isKey) => {
-      let cls = 'json-number';
-      if (str) cls = isKey ? 'json-key' : 'json-string';
-      else if (match === 'true' || match === 'false') cls = 'json-boolean';
-      else if (match === 'null') cls = 'json-null';
-      return `<span class="${cls}">${match}</span>`;
-    },
-  );
+  if (hljs) return hljs.highlight(json, { language: 'json' }).value;
+  return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function logPrompt(text) {

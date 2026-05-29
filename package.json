@@ -1,11 +1,12 @@
 {
   "scripts": {
-    "postinstall": "npx esbuild ./node_modules/@google/genai/dist/web/index.mjs --bundle --format=esm --outfile=js-genai.js && rm -rf node_modules"
+    "postinstall": "npx esbuild ./node_modules/@google/genai/dist/web/index.mjs --bundle --format=esm --outfile=js-genai.js && npx esbuild ./hljs.src.js --bundle --format=esm --outfile=hljs.js && rm -rf node_modules"
   },
   "dependencies": {
-    "@google/genai": "^1.38.0"
+    "@google/genai": "^1.38.0",
+    "highlight.js": "^11.11.1"
   },
   "devDependencies": {
-    "esbuild": "^0.27.3"
+    "esbuild": "^0.27.7"
   }
 }
