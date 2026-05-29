@@ -51,6 +51,71 @@ button:hover {
   margin-bottom: 20px;
 }
 
+#promptResults {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.4;
+  white-space: normal;
+  padding: 8px;
+  font-size: 0.8125rem;
+  max-height: 320px;
+}
+
+#promptResults:empty {
+  display: none;
+}
+
+.log-entry {
+  border-left: 3px solid #6b7280;
+  border-radius: 4px;
+  padding: 5px 8px;
+  background: rgb(255 255 255 / 5%);
+}
+
+.log-label {
+  font-weight: 600;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+}
+
+details.log-entry > summary.log-label {
+  cursor: pointer;
+  user-select: none;
+}
+
+.log-body {
+  margin-top: 3px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.log-body.json {
+  margin: 6px 0 0;
+}
+
+.log-user {
+  border-left-color: #3b82f6;
+}
+
+.log-agent {
+  border-left-color: #10b981;
+}
+
+.log-toolcall {
+  border-left-color: #f59e0b;
+}
+
+.log-toolresult {
+  border-left-color: #8b5cf6;
+}
+
+.log-error {
+  border-left-color: #ef4444;
+}
+
 #status {
   margin-top: 10px;
   font-size: 0.75rem;

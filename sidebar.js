@@ -220,7 +220,7 @@ async function refreshClient() {
       genAI = new GenAI({ apiKey: localStorage.apiKey });
     } catch (error) {
       genAI = undefined;
-      logPrompt(`⚠️ Gemini SDK not bundled. Run "npm install", or use the ARK provider. (${error})`);
+      logLine('error', 'Gemini SDK not bundled', `Run "npm install", or use the ARK provider. (${error})`);
     }
   } else {
     genAI = undefined;
@@ -311,7 +311,7 @@ suggestBtn.onclick = async () => {
     });
     userPromptText.value = response.text?.trim() || '';
   } catch (error) {
-    logPrompt(`⚠️ Error suggesting prompt: ${error}`);
+    logLine('error', 'Error suggesting prompt', String(error));
   } finally {
     updateSuggestButton();
   }
@@ -329,7 +329,7 @@ promptBtn.onclick = async () => {
     await promptAI();
   } catch (error) {
     trace.push({ error });
-    logPrompt(`⚠️ Error: "${error}"`);
+    logLine('error', 'Error', String(error));
   }
 };
 
@@ -342,7 +342,7 @@ async function promptAI() {
 
   const message = userPromptText.value;
   userPromptText.value = '';
-  promptResults.textContent += `User prompt: "${message}"\n`;
+  logLine('user', 'User', message);
   const sendMessageParams = { message, config: getConfig() };
   trace.push({ userPrompt: sendMessageParams });
   let currentResult = await chat.sendMessage(sendMessageParams);
@@ -355,9 +355,9 @@ async function promptAI() {
 
     if (functionCalls.length === 0) {
       if (!response.text) {
-        logPrompt(`⚠️ AI response has no text: ${JSON.stringify(response.candidates)}\n`);
+        logJSON('error', 'Agent response has no text', JSON.stringify(response.candidates));
       } else {
-        logPrompt(`AI result: ${response.text?.trim()}\n`);
+        logLine('agent', 'Agent', response.text.trim());
       }
       finalResponseGiven = true;
     } else {
@@ -366,13 +366,13 @@ async function promptAI() {
         const [locationIndex, name] = toolName.split(/_(.*)/s)[1].split(/_(.*)/s);
         const location = currentTools[locationIndex].location;
         const inputArgs = JSON.stringify(args);
-        logPrompt(`AI calling tool "${name}" with ${inputArgs}`);
+        logJSON('toolcall', `Tool call → ${name}`, inputArgs);
         try {
           const result = await executeTool(tab.id, name, inputArgs, location);
           toolResponses.push({ functionResponse: { name: toolName, response: { result } } });
-          logPrompt(`Tool "${name}" result: ${result}`);
+          logJSON('toolresult', `Tool result → ${name}`, result);
         } catch (e) {
-          logPrompt(`⚠️ Error executing tool "${name}": ${e.message}`);
+          logLine('error', `Tool error → ${name}`, e.message);
           toolResponses.push({
             functionResponse: { name: toolName, response: { error: e.message } },
           });
@@ -461,9 +461,49 @@ function highlightJSON(json) {
   return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function logPrompt(text) {
-  promptResults.textContent += `${text}\n`;
+function appendLog(node) {
+  promptResults.appendChild(node);
   promptResults.scrollTop = promptResults.scrollHeight;
+}
+
+// A plain text log entry tagged with a role (user/agent/tool/error/note).
+function logLine(kind, label, text) {
+  const entry = document.createElement('div');
+  entry.className = `log-entry log-${kind}`;
+  if (label) {
+    const tag = document.createElement('div');
+    tag.className = 'log-label';
+    tag.textContent = label;
+    entry.appendChild(tag);
+  }
+  if (text) {
+    const body = document.createElement('div');
+    body.className = 'log-body';
+    body.textContent = text;
+    entry.appendChild(body);
+  }
+  appendLog(entry);
+}
+
+// A collapsible entry whose body is pretty-printed, syntax-highlighted JSON
+// (falls back to raw text when the payload isn't JSON).
+function logJSON(kind, label, raw) {
+  const entry = document.createElement('details');
+  entry.className = `log-entry log-${kind}`;
+  entry.open = true;
+  const summary = document.createElement('summary');
+  summary.className = 'log-label';
+  summary.textContent = label;
+  entry.appendChild(summary);
+  const pre = document.createElement('pre');
+  pre.className = 'log-body json';
+  let pretty = raw;
+  try {
+    pretty = JSON.stringify(JSON.parse(raw), null, '  ');
+  } catch {}
+  pre.innerHTML = highlightJSON(pretty);
+  entry.appendChild(pre);
+  appendLog(entry);
 }
 
 function getFormattedDate() {
