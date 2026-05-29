@@ -175,7 +175,7 @@ async function initProvider() {
     env = (await envModulePromise).default;
   } catch {}
 
-  localStorage.provider ??= env?.provider || 'gemini';
+  localStorage.provider ??= env?.provider || 'ark';
 
   // Gemini key + model migrations.
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
