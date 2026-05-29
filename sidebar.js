@@ -23,9 +23,8 @@ const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 const advancedSection = document.getElementById('advancedSection');
-const geminiModels = document.getElementById('geminiModels');
-const arkModels = document.getElementById('arkModels');
-const arkModelList = document.getElementById('arkModelList');
+const modelList = document.getElementById('modelList');
+const thinkingSection = document.getElementById('thinkingSection');
 const arkCustomModel = document.getElementById('arkCustomModel');
 
 // First, request list of tools from content script living in top-level frame.
@@ -213,35 +212,72 @@ function updateApiKeyButton() {
   apiKeyBtn.textContent = `${haveKey ? 'Update' : 'Set'} ${provider} API key`;
 }
 
-// Populate the ARK model radio list once.
-ARK_MODELS.forEach((model) => {
-  const label = document.createElement('label');
-  label.className = 'model-option';
-  const thinkingNote = model.thinking ? '' : ' (no thinking)';
-  label.innerHTML =
-    `<input type="radio" name="arkModel" value="${model.id}">` +
-    `<span>${model.label}${thinkingNote}</span>`;
-  arkModelList.appendChild(label);
-});
+const GEMINI_MODELS = [
+  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite' },
+  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+];
 
-// Reflect stored selections into the dialog and toggle provider sections.
+function selectModel(value) {
+  if (isArk()) localStorage.arkModel = value;
+  else localStorage.model = value;
+  chat = undefined;
+}
+
+function addModelOption(label, value, checked, onSelect) {
+  const option = document.createElement('label');
+  option.className = 'model-option';
+  const input = document.createElement('input');
+  input.type = 'radio';
+  input.name = 'modelChoice';
+  input.checked = checked;
+  const span = document.createElement('span');
+  span.textContent = label;
+  option.append(input, span);
+  input.onclick = onSelect;
+  modelList.appendChild(option);
+}
+
+// Rebuild the model list so it only ever shows the active provider's models.
+function renderModelOptions() {
+  modelList.innerHTML = '';
+  if (isArk()) {
+    const arkIsKnown = ARK_MODELS.some((m) => m.id === localStorage.arkModel);
+    ARK_MODELS.forEach((model) => {
+      const label = model.thinking ? model.label : `${model.label} (no thinking)`;
+      addModelOption(label, model.id, arkIsKnown && model.id === localStorage.arkModel, () => {
+        selectModel(model.id);
+        arkCustomModel.classList.add('is-hidden');
+        advancedSection.hidePopover();
+      });
+    });
+    addModelOption('Custom', '__custom__', !arkIsKnown, () => {
+      arkCustomModel.classList.remove('is-hidden');
+      arkCustomModel.focus();
+    });
+    arkCustomModel.classList.toggle('is-hidden', arkIsKnown);
+    if (!arkIsKnown) arkCustomModel.value = localStorage.arkModel;
+  } else {
+    arkCustomModel.classList.add('is-hidden');
+    GEMINI_MODELS.forEach((model) => {
+      addModelOption(model.label, model.id, model.id === localStorage.model, () => {
+        selectModel(model.id);
+        advancedSection.hidePopover();
+      });
+    });
+  }
+}
+
+// Reflect stored selections into the dialog.
 function syncAdvancedUI() {
   document.querySelectorAll('input[name="provider"]').forEach((radio) => {
     radio.checked = radio.value === localStorage.provider;
   });
-  document.querySelectorAll('input[name="model"]').forEach((radio) => {
-    radio.checked = radio.value === localStorage.model;
-  });
-  const arkIsKnown = ARK_MODELS.some((m) => m.id === localStorage.arkModel);
-  document.querySelectorAll('input[name="arkModel"]').forEach((radio) => {
-    radio.checked = arkIsKnown ? radio.value === localStorage.arkModel : radio.value === '__custom__';
-  });
-  if (!arkIsKnown) arkCustomModel.value = localStorage.arkModel;
+  renderModelOptions();
+  thinkingSection.classList.toggle('is-hidden', !isArk());
   document.querySelectorAll('input[name="arkThinking"]').forEach((radio) => {
     radio.checked = radio.value === localStorage.arkThinking;
   });
-  geminiModels.classList.toggle('is-hidden', isArk());
-  arkModels.classList.toggle('is-hidden', !isArk());
 }
 
 await initProvider();
@@ -251,26 +287,6 @@ document.querySelectorAll('input[name="provider"]').forEach((radio) => {
     localStorage.provider = radio.value;
     await initProvider();
     suggestUserPrompt();
-  };
-});
-
-document.querySelectorAll('input[name="model"]').forEach((radio) => {
-  radio.onclick = () => {
-    localStorage.model = radio.value;
-    chat = undefined;
-    advancedSection.hidePopover();
-  };
-});
-
-document.querySelectorAll('input[name="arkModel"]').forEach((radio) => {
-  radio.onclick = () => {
-    if (radio.value === '__custom__') {
-      arkCustomModel.focus();
-      return;
-    }
-    localStorage.arkModel = radio.value;
-    chat = undefined;
-    advancedSection.hidePopover();
   };
 });
 
