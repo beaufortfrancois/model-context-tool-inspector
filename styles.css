@@ -300,6 +300,12 @@ dialog::backdrop {
   width: auto;
 }
 
+#apiKeyInput {
+  width: calc(100% - 20px);
+  margin: 4px 10px 8px 10px;
+  font-size: 0.8125rem;
+}
+
 /* Show only the model group for the selected provider. */
 #geminiGroup,
 #arkGroup {

@@ -20,7 +20,7 @@ const userPromptText = document.getElementById('userPromptText');
 const promptBtn = document.getElementById('promptBtn');
 const traceBtn = document.getElementById('traceBtn');
 const resetBtn = document.getElementById('resetBtn');
-const apiKeyBtn = document.getElementById('apiKeyBtn');
+const apiKeyInput = document.getElementById('apiKeyInput');
 const promptResults = document.getElementById('promptResults');
 const advancedSection = document.getElementById('advancedSection');
 
@@ -199,14 +199,13 @@ async function initProvider() {
   chat = undefined;
   promptBtn.disabled = !genAI;
   resetBtn.disabled = !genAI;
-  updateApiKeyButton();
+  updateApiKeyField();
   syncAdvancedUI();
 }
 
-function updateApiKeyButton() {
-  const provider = isArk() ? 'ARK' : 'Gemini';
-  const haveKey = isArk() ? !!localStorage.arkApiKey : !!localStorage.apiKey;
-  apiKeyBtn.textContent = `${haveKey ? 'Update' : 'Set'} ${provider} API key`;
+function updateApiKeyField() {
+  apiKeyInput.placeholder = isArk() ? 'ARK API key' : 'Gemini API key';
+  apiKeyInput.value = (isArk() ? localStorage.arkApiKey : localStorage.apiKey) || '';
 }
 
 // Restore stored selections into the radios. Which group is visible is handled
@@ -371,16 +370,10 @@ resetBtn.onclick = () => {
   suggestUserPrompt();
 };
 
-apiKeyBtn.onclick = async () => {
-  if (isArk()) {
-    const apiKey = prompt('Enter ARK API key', localStorage.arkApiKey || '');
-    if (apiKey == null) return;
-    localStorage.arkApiKey = apiKey;
-  } else {
-    const apiKey = prompt('Enter Gemini API key', localStorage.apiKey || '');
-    if (apiKey == null) return;
-    localStorage.apiKey = apiKey;
-  }
+apiKeyInput.onchange = async () => {
+  const apiKey = apiKeyInput.value.trim();
+  if (isArk()) localStorage.arkApiKey = apiKey;
+  else localStorage.apiKey = apiKey;
   await initProvider();
   suggestUserPrompt();
 };
