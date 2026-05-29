@@ -47,8 +47,32 @@ button:hover {
   border-radius: 4px;
   white-space: pre-line;
   max-height: 200px;
-  overflow-y: scroll;
+  overflow-y: auto;
   margin-bottom: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: #4b4b4b transparent;
+}
+
+#promptResults::-webkit-scrollbar,
+#toolResults::-webkit-scrollbar {
+  width: 10px;
+}
+
+#promptResults::-webkit-scrollbar-track,
+#toolResults::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#promptResults::-webkit-scrollbar-thumb,
+#toolResults::-webkit-scrollbar-thumb {
+  background: #4b4b4b;
+  border: 2px solid #222;
+  border-radius: 6px;
+}
+
+#promptResults::-webkit-scrollbar-thumb:hover,
+#toolResults::-webkit-scrollbar-thumb:hover {
+  background: #5f5f5f;
 }
 
 #promptResults {
@@ -59,7 +83,8 @@ button:hover {
   white-space: normal;
   padding: 8px;
   font-size: 0.8125rem;
-  max-height: 320px;
+  min-height: 120px;
+  max-height: 60vh;
 }
 
 #promptResults:empty {
