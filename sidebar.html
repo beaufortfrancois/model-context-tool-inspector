@@ -35,10 +35,7 @@
       <div class="section-content">
 
       <div class="form-group">
-        <div class="label-with-button">
-          <label for="userPromptText">User Prompt</label>
-          <button id="advancedBtn" title="Advanced features" popovertarget="advancedSection" class="icon-btn">⋮</button>
-        </div>
+        <label for="userPromptText">User Prompt</label>
         <textarea id="userPromptText"></textarea>
       </div>
 
@@ -92,12 +89,15 @@
             <span>Auto</span>
           </label>
         </div>
+
+        <div class="menu-label">API Key</div>
+        <button type="button" id="apiKeyBtn" class="model-option">Set API key</button>
       </dialog>
 
       <div class="form-group">
         <button id="promptBtn" disabled>Send</button>
         <button id="resetBtn" class="secondary" disabled>Reset</button>
-        <button id="apiKeyBtn" class="secondary">Set Gemini API key</button>
+        <button id="configBtn" class="secondary" popovertarget="advancedSection">Config</button>
         <button id="traceBtn" class="secondary">Copy trace</button>
       </div>
 
