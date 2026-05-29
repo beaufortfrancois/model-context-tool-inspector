@@ -99,7 +99,8 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
     keys.forEach((key) => {
       const td = document.createElement('td');
       try {
-        td.innerHTML = `<pre>${JSON.stringify(JSON.parse(item[key]), '', '  ')}</pre>`;
+        const json = JSON.stringify(JSON.parse(item[key]), null, '  ');
+        td.innerHTML = `<pre class="json">${highlightJSON(json)}</pre>`;
       } catch (error) {
         td.textContent = item[key];
       }
@@ -448,6 +449,25 @@ function updateDefaultValueForInputArgs() {
 }
 
 // Utils
+
+// Wrap JSON tokens in spans so styles.css can color them like an editor.
+// Also HTML-escapes, so it's safe to drop into innerHTML.
+function highlightJSON(json) {
+  const escaped = json
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  return escaped.replace(
+    /("(?:\\.|[^"\\])*"(\s*:)?)|\b(true|false)\b|\bnull\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g,
+    (match, str, isKey) => {
+      let cls = 'json-number';
+      if (str) cls = isKey ? 'json-key' : 'json-string';
+      else if (match === 'true' || match === 'false') cls = 'json-boolean';
+      else if (match === 'null') cls = 'json-null';
+      return `<span class="${cls}">${match}</span>`;
+    },
+  );
+}
 
 function logPrompt(text) {
   promptResults.textContent += `${text}\n`;

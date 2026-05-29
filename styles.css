@@ -320,6 +320,33 @@ dialog::backdrop {
   display: block;
 }
 
+/* JSON syntax highlighting (editor-like), light theme. */
+pre.json {
+  background-color: #f6f8fa;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+pre.json .json-key {
+  color: #0451a5;
+}
+
+pre.json .json-string {
+  color: #a31515;
+}
+
+pre.json .json-number {
+  color: #098658;
+}
+
+pre.json .json-boolean,
+pre.json .json-null {
+  color: #0000ff;
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #121212;
@@ -354,6 +381,28 @@ dialog::backdrop {
 
   .model-option:hover {
     background-color: #262626;
+  }
+
+  pre.json {
+    background-color: #1e1e1e;
+    border-color: #333;
+  }
+
+  pre.json .json-key {
+    color: #9cdcfe;
+  }
+
+  pre.json .json-string {
+    color: #ce9178;
+  }
+
+  pre.json .json-number {
+    color: #b5cea8;
+  }
+
+  pre.json .json-boolean,
+  pre.json .json-null {
+    color: #569cd6;
   }
 
   .menu-label {
