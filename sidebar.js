@@ -433,6 +433,13 @@ apiKeyInput.oninput = async () => {
 traceBtn.onclick = async () => {
   const text = JSON.stringify(trace, '', ' ');
   await navigator.clipboard.writeText(text);
+  const original = traceBtn.textContent;
+  traceBtn.textContent = 'Copied!';
+  traceBtn.classList.add('copied');
+  setTimeout(() => {
+    traceBtn.textContent = original;
+    traceBtn.classList.remove('copied');
+  }, 1200);
 };
 
 executeBtn.onclick = async () => {
@@ -441,9 +448,15 @@ executeBtn.onclick = async () => {
   const name = toolNames.selectedOptions[0].value;
   const inputArgs = inputArgsText.value;
   const location = toolNames.selectedOptions[0].dataset.location;
-  toolResults.textContent = await executeTool(tab.id, name, inputArgs, location).catch(
+  const result = await executeTool(tab.id, name, inputArgs, location).catch(
     (error) => `⚠️ Error: "${error}"`,
   );
+  let pretty = result;
+  try {
+    pretty = JSON.stringify(JSON.parse(result), null, '  ');
+  } catch {}
+  toolResults.className = 'json';
+  toolResults.innerHTML = highlightJSON(pretty);
 };
 
 async function executeTool(tabId, name, inputArgs, location) {

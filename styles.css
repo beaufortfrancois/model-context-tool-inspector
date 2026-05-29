@@ -306,9 +306,24 @@ button:disabled {
   outline-color: #1d4ed8;
 }
 
+.secondary.copied,
+.secondary.copied:hover {
+  color: #16a34a;
+  outline-color: #16a34a;
+}
+
 #toolResults {
   white-space: break-spaces;
   word-break: break-all;
+}
+
+/* When the manual result is JSON it adopts the run log's pre.json look
+   instead of the plain dark box, so both output paths read identically. */
+#toolResults.json {
+  background: #f6f8fa;
+  color: inherit;
+  line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 tbody pre {
@@ -574,6 +589,12 @@ pre.json .hljs-literal {
     outline-color: #93c5fd;
   }
 
+  .secondary.copied,
+  .secondary.copied:hover {
+    color: #4ade80;
+    outline-color: #4ade80;
+  }
+
   select:disabled,
   textarea:disabled,
   button:disabled {
@@ -586,6 +607,11 @@ pre.json .hljs-literal {
   #toolResults {
     background: #000;
     border: 1px solid #333;
+  }
+
+  #toolResults.json {
+    background: #1e1e1e;
+    border-color: #333;
   }
 
   #status {
