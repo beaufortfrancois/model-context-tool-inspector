@@ -49,6 +49,38 @@ Install the extension directly via the [Chrome Web Store](https://chromewebstore
         * *Note:* The input must be valid JSON (e.g., `{"text": "hello world"}`).
     * Click **Execute Tool**.
 
+## Choosing a model provider
+
+The "Interact with the Page" section can drive tools with either Gemini or
+Volcano Engine ARK (Doubao). Open the advanced menu (the `⋮` button next to the
+prompt) to pick a provider, model, and (for ARK) a thinking mode.
+
+* **Gemini:** set a [Gemini API key](https://aistudio.google.com/apikey) via
+  the **Set Gemini API key** button.
+* **ARK (Doubao):** select the ARK provider, then set an
+  [ARK API key](https://www.volcengine.com/docs/82379). ARK speaks an
+  OpenAI-compatible chat-completions endpoint
+  (`https://ark.cn-beijing.volces.com/api/v3` by default). Pick a model from the
+  list, or choose **Custom** to enter any model id or `ep-` endpoint id.
+  * **Thinking** defaults to **Off** for lower latency. Doubao Seed 2.x's
+    reasoning budget roughly triples response time; turn it **On** or **Auto**
+    if you want the model to reason. Models marked "no thinking" ignore the
+    setting.
+
+Keys and selections are stored in the side panel's `localStorage`. You can also
+ship defaults in an optional `.env.json` next to `sidebar.html`:
+
+```json
+{
+  "provider": "ark",
+  "arkApiKey": "...",
+  "arkModel": "doubao-seed-2-0-pro-260215",
+  "arkThinking": "disabled",
+  "apiKey": "...",
+  "model": "gemini-3-flash-preview"
+}
+```
+
 ## Disclaimer
 
 This is not an officially supported Google product. This project is not

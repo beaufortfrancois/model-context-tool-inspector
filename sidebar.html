@@ -43,19 +43,55 @@
       </div>
 
       <dialog id="advancedSection" popover autofocus>
-        <div class="menu-label">Gemini Model</div>
+        <div class="menu-label">Provider</div>
         <label class="model-option">
-          <input type="radio" name="model" value="gemini-3-flash-preview">
-          <span>Gemini 3 Flash Preview</span>
+          <input type="radio" name="provider" value="gemini">
+          <span>Gemini</span>
         </label>
         <label class="model-option">
-          <input type="radio" name="model" value="gemini-3.1-flash-lite">
-          <span>Gemini 3.1 Flash-Lite</span>
+          <input type="radio" name="provider" value="ark">
+          <span>ARK (Doubao)</span>
         </label>
-        <label class="model-option">
-          <input type="radio" name="model" value="gemini-3.5-flash">
-          <span>Gemini 3.5 Flash</span>
-        </label>
+
+        <div id="geminiModels">
+          <div class="menu-label">Gemini Model</div>
+          <label class="model-option">
+            <input type="radio" name="model" value="gemini-3-flash-preview">
+            <span>Gemini 3 Flash Preview</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="model" value="gemini-3.1-flash-lite">
+            <span>Gemini 3.1 Flash-Lite</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="model" value="gemini-3.5-flash">
+            <span>Gemini 3.5 Flash</span>
+          </label>
+        </div>
+
+        <div id="arkModels">
+          <div class="menu-label">ARK Model</div>
+          <div id="arkModelList"></div>
+          <label class="model-option">
+            <input type="radio" name="arkModel" value="__custom__">
+            <span>Custom</span>
+          </label>
+          <input type="text" id="arkCustomModel" placeholder="model id or ep-xxxx endpoint id">
+
+          <div class="menu-label">Thinking</div>
+          <label class="model-option">
+            <input type="radio" name="arkThinking" value="disabled">
+            <span>Off (faster)</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="arkThinking" value="enabled">
+            <span>On</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="arkThinking" value="auto">
+            <span>Auto</span>
+          </label>
+        </div>
       </dialog>
 
       <div class="form-group">

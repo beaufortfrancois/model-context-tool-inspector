@@ -300,6 +300,12 @@ dialog::backdrop {
   width: auto;
 }
 
+#arkCustomModel {
+  width: calc(100% - 20px);
+  margin: 0 10px 6px 10px;
+  font-size: 0.8125rem;
+}
+
 @media (prefers-color-scheme: dark) {
   body {
     background-color: #121212;

@@ -4,6 +4,7 @@
  */
 
 import { GoogleGenAI } from './js-genai.js';
+import { ArkAI, ARK_MODELS, ARK_BASE_URL_DEFAULT } from './ark.js';
 
 const statusDiv = document.getElementById('status');
 const tbody = document.getElementById('tableBody');
@@ -22,6 +23,10 @@ const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 const advancedSection = document.getElementById('advancedSection');
+const geminiModels = document.getElementById('geminiModels');
+const arkModels = document.getElementById('arkModels');
+const arkModelList = document.getElementById('arkModelList');
+const arkCustomModel = document.getElementById('arkCustomModel');
 
 // First, request list of tools from content script living in top-level frame.
 (async () => {
@@ -149,12 +154,25 @@ let genAI, chat;
 
 const envModulePromise = import('./.env.json', { with: { type: 'json' } });
 
-async function initGenAI() {
+// Which key + model the active provider uses.
+function isArk() {
+  return localStorage.provider === 'ark';
+}
+
+function currentModel() {
+  return isArk() ? localStorage.arkModel : localStorage.model;
+}
+
+async function initProvider() {
   let env;
   try {
     // Try load .env.json if present.
     env = (await envModulePromise).default;
   } catch {}
+
+  localStorage.provider ??= env?.provider || 'gemini';
+
+  // Gemini key + model migrations.
   if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
   if (localStorage.model === 'gemini-2.5-flash') {
     localStorage.model = 'gemini-3-flash-preview';
@@ -163,19 +181,110 @@ async function initGenAI() {
     localStorage.model = 'gemini-3.1-flash-lite';
   }
   localStorage.model ??= env?.model || 'gemini-3-flash-preview';
-  genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
-  promptBtn.disabled = !localStorage.apiKey;
-  resetBtn.disabled = !localStorage.apiKey;
-  apiKeyBtn.textContent = localStorage.apiKey ? 'Update Gemini API key' : 'Set Gemini API key';
+
+  // ARK key + model + thinking config.
+  if (env?.arkApiKey) localStorage.arkApiKey ??= env.arkApiKey;
+  if (env?.arkBaseUrl) localStorage.arkBaseUrl ??= env.arkBaseUrl;
+  localStorage.arkModel ??= env?.arkModel || ARK_MODELS[0].id;
+  localStorage.arkThinking ??= env?.arkThinking || 'disabled';
+
+  if (isArk()) {
+    genAI = localStorage.arkApiKey
+      ? new ArkAI({
+          apiKey: localStorage.arkApiKey,
+          baseURL: localStorage.arkBaseUrl,
+          thinkingMode: localStorage.arkThinking,
+        })
+      : undefined;
+  } else {
+    genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
+  }
+
+  chat = undefined;
+  promptBtn.disabled = !genAI;
+  resetBtn.disabled = !genAI;
+  updateApiKeyButton();
+  syncAdvancedUI();
 }
-await initGenAI();
+
+function updateApiKeyButton() {
+  const provider = isArk() ? 'ARK' : 'Gemini';
+  const haveKey = isArk() ? !!localStorage.arkApiKey : !!localStorage.apiKey;
+  apiKeyBtn.textContent = `${haveKey ? 'Update' : 'Set'} ${provider} API key`;
+}
+
+// Populate the ARK model radio list once.
+ARK_MODELS.forEach((model) => {
+  const label = document.createElement('label');
+  label.className = 'model-option';
+  const thinkingNote = model.thinking ? '' : ' (no thinking)';
+  label.innerHTML =
+    `<input type="radio" name="arkModel" value="${model.id}">` +
+    `<span>${model.label}${thinkingNote}</span>`;
+  arkModelList.appendChild(label);
+});
+
+// Reflect stored selections into the dialog and toggle provider sections.
+function syncAdvancedUI() {
+  document.querySelectorAll('input[name="provider"]').forEach((radio) => {
+    radio.checked = radio.value === localStorage.provider;
+  });
+  document.querySelectorAll('input[name="model"]').forEach((radio) => {
+    radio.checked = radio.value === localStorage.model;
+  });
+  const arkIsKnown = ARK_MODELS.some((m) => m.id === localStorage.arkModel);
+  document.querySelectorAll('input[name="arkModel"]').forEach((radio) => {
+    radio.checked = arkIsKnown ? radio.value === localStorage.arkModel : radio.value === '__custom__';
+  });
+  if (!arkIsKnown) arkCustomModel.value = localStorage.arkModel;
+  document.querySelectorAll('input[name="arkThinking"]').forEach((radio) => {
+    radio.checked = radio.value === localStorage.arkThinking;
+  });
+  geminiModels.classList.toggle('is-hidden', isArk());
+  arkModels.classList.toggle('is-hidden', !isArk());
+}
+
+await initProvider();
+
+document.querySelectorAll('input[name="provider"]').forEach((radio) => {
+  radio.onchange = async () => {
+    localStorage.provider = radio.value;
+    await initProvider();
+    suggestUserPrompt();
+  };
+});
 
 document.querySelectorAll('input[name="model"]').forEach((radio) => {
-  radio.checked = radio.value === localStorage.model;
   radio.onclick = () => {
     localStorage.model = radio.value;
     chat = undefined;
     advancedSection.hidePopover();
+  };
+});
+
+document.querySelectorAll('input[name="arkModel"]').forEach((radio) => {
+  radio.onclick = () => {
+    if (radio.value === '__custom__') {
+      arkCustomModel.focus();
+      return;
+    }
+    localStorage.arkModel = radio.value;
+    chat = undefined;
+    advancedSection.hidePopover();
+  };
+});
+
+arkCustomModel.onchange = () => {
+  const value = arkCustomModel.value.trim();
+  if (!value) return;
+  localStorage.arkModel = value;
+  chat = undefined;
+};
+
+document.querySelectorAll('input[name="arkThinking"]').forEach((radio) => {
+  radio.onclick = async () => {
+    localStorage.arkThinking = radio.value;
+    await initProvider();
   };
 });
 
@@ -184,7 +293,7 @@ async function suggestUserPrompt() {
     return;
   const userPromptId = ++userPromptPendingId;
   const response = await genAI.models.generateContent({
-    model: localStorage.model,
+    model: currentModel(),
     contents: [
       '**Context:**',
       `Today's date is: ${getFormattedDate()}`,
@@ -231,7 +340,7 @@ let trace = [];
 async function promptAI() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  chat ??= genAI.chats.create({ model: localStorage.model });
+  chat ??= genAI.chats.create({ model: currentModel() });
 
   const message = userPromptText.value;
   userPromptText.value = '';
@@ -294,10 +403,16 @@ resetBtn.onclick = () => {
 };
 
 apiKeyBtn.onclick = async () => {
-  const apiKey = prompt('Enter Gemini API key', localStorage.apiKey);
-  if (apiKey == null) return;
-  localStorage.apiKey = apiKey;
-  await initGenAI();
+  if (isArk()) {
+    const apiKey = prompt('Enter ARK API key', localStorage.arkApiKey || '');
+    if (apiKey == null) return;
+    localStorage.arkApiKey = apiKey;
+  } else {
+    const apiKey = prompt('Enter Gemini API key', localStorage.apiKey || '');
+    if (apiKey == null) return;
+    localStorage.apiKey = apiKey;
+  }
+  await initProvider();
   suggestUserPrompt();
 };
 
