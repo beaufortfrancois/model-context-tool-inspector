@@ -381,7 +381,7 @@ async function promptAI() {
           const result = await executeTool(tab.id, name, inputArgs, location);
           if (stopped()) return;
           toolResponses.push({ functionResponse: { name: toolName, response: { result } } });
-          logJSON('toolresult', `Tool result → ${name}`, result);
+          logJSON('toolresult', `Tool result → ${name}`, result, { open: false });
         } catch (e) {
           if (stopped()) return;
           logLine('error', `Tool error → ${name}`, e.message);
@@ -502,10 +502,10 @@ function logLine(kind, label, text) {
 
 // A collapsible entry whose body is pretty-printed, syntax-highlighted JSON
 // (falls back to raw text when the payload isn't JSON).
-function logJSON(kind, label, raw) {
+function logJSON(kind, label, raw, { open = true } = {}) {
   const entry = document.createElement('details');
   entry.className = `log-entry log-${kind}`;
-  entry.open = true;
+  entry.open = open;
   const summary = document.createElement('summary');
   summary.className = 'log-label';
   summary.textContent = label;
