@@ -34,6 +34,7 @@ const executeBtn = document.getElementById('executeBtn');
 const toolResults = document.getElementById('toolResults');
 const userPromptText = document.getElementById('userPromptText');
 const promptBtn = document.getElementById('promptBtn');
+const suggestBtn = document.getElementById('suggestBtn');
 const traceBtn = document.getElementById('traceBtn');
 const resetBtn = document.getElementById('resetBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
@@ -55,8 +56,6 @@ const advancedSection = document.getElementById('advancedSection');
 
 let currentTools;
 
-let userPromptPendingId = 0;
-let lastSuggestedUserPrompt = '';
 
 // Listen for the results coming back from content.js
 chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
@@ -72,9 +71,8 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
   statusDiv.textContent = message;
   statusDiv.hidden = !message;
 
-  const haveNewTools = JSON.stringify(currentTools) !== JSON.stringify(tools);
-
   currentTools = tools;
+  updateSuggestButton();
 
   if (!tools || tools.length === 0) {
     const row = document.createElement('tr');
@@ -128,8 +126,6 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
     toolNames.appendChild(option);
   });
   updateDefaultValueForInputArgs();
-
-  if (haveNewTools) suggestUserPrompt();
 });
 
 tbody.ondblclick = () => {
@@ -232,6 +228,7 @@ async function refreshClient() {
   chat = undefined;
   promptBtn.disabled = !genAI;
   resetBtn.disabled = !genAI;
+  updateSuggestButton();
 }
 
 function updateApiKeyField() {
@@ -260,7 +257,6 @@ document.querySelectorAll('input[name="provider"]').forEach((radio) => {
   radio.onchange = async () => {
     localStorage.provider = radio.value;
     await initProvider();
-    suggestUserPrompt();
   };
 });
 
@@ -287,36 +283,39 @@ document.querySelectorAll('input[name="arkThinking"]').forEach((radio) => {
   };
 });
 
-async function suggestUserPrompt() {
-  if (currentTools.length == 0 || !genAI || userPromptText.value !== lastSuggestedUserPrompt)
-    return;
-  const userPromptId = ++userPromptPendingId;
-  const response = await genAI.models.generateContent({
-    model: currentModel(),
-    contents: [
-      '**Context:**',
-      `Today's date is: ${getFormattedDate()}`,
-      '**Tool Rules:**',
-      '1. **Bank Transaction Filter:** Use **PAST** dates only (e.g., "last month," "December 15th," "yesterday").',
-      '2. **Flight Search:** Use **FUTURE** dates only (e.g., "next week," "February 15th").',
-      '3. **Accommodation Search:** Use **FUTURE** dates only (e.g., "next weekend," "March 15th").',
-      '**Task:**',
-      'Generate one natural user query for a range of tools below, ideally chaining them together.',
-      'Ensure the date makes sense relative to today.',
-      'Output the query text only.',
-      '**Tools:**',
-      JSON.stringify(currentTools),
-    ],
-  });
-  if (userPromptId !== userPromptPendingId || userPromptText.value !== lastSuggestedUserPrompt)
-    return;
-  lastSuggestedUserPrompt = response.text;
-  userPromptText.value = '';
-  for (const chunk of response.text) {
-    await new Promise((r) => requestAnimationFrame(r));
-    userPromptText.value += chunk;
-  }
+// The Suggest button is usable once a client and tools are both available.
+function updateSuggestButton() {
+  suggestBtn.disabled = !genAI || !currentTools || currentTools.length === 0;
 }
+
+suggestBtn.onclick = async () => {
+  if (suggestBtn.disabled) return;
+  suggestBtn.disabled = true;
+  try {
+    const response = await genAI.models.generateContent({
+      model: currentModel(),
+      contents: [
+        '**Context:**',
+        `Today's date is: ${getFormattedDate()}`,
+        '**Tool Rules:**',
+        '1. **Bank Transaction Filter:** Use **PAST** dates only (e.g., "last month," "December 15th," "yesterday").',
+        '2. **Flight Search:** Use **FUTURE** dates only (e.g., "next week," "February 15th").',
+        '3. **Accommodation Search:** Use **FUTURE** dates only (e.g., "next weekend," "March 15th").',
+        '**Task:**',
+        'Generate one natural user query for a range of tools below, ideally chaining them together.',
+        'Ensure the date makes sense relative to today.',
+        'Output the query text only.',
+        '**Tools:**',
+        JSON.stringify(currentTools),
+      ],
+    });
+    userPromptText.value = response.text?.trim() || '';
+  } catch (error) {
+    logPrompt(`⚠️ Error suggesting prompt: ${error}`);
+  } finally {
+    updateSuggestButton();
+  }
+};
 
 userPromptText.onkeydown = (event) => {
   if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
@@ -343,7 +342,6 @@ async function promptAI() {
 
   const message = userPromptText.value;
   userPromptText.value = '';
-  lastSuggestedUserPrompt = '';
   promptResults.textContent += `User prompt: "${message}"\n`;
   const sendMessageParams = { message, config: getConfig() };
   trace.push({ userPrompt: sendMessageParams });
@@ -396,9 +394,7 @@ resetBtn.onclick = () => {
   chat = undefined;
   trace = [];
   userPromptText.value = '';
-  lastSuggestedUserPrompt = '';
   promptResults.textContent = '';
-  suggestUserPrompt();
 };
 
 // Save live so the Send button enables as soon as a key is present; rebuild the
@@ -409,8 +405,6 @@ apiKeyInput.oninput = async () => {
   else localStorage.apiKey = apiKey;
   await refreshClient();
 };
-
-apiKeyInput.onchange = () => suggestUserPrompt();
 
 traceBtn.onclick = async () => {
   const text = JSON.stringify(trace, '', ' ');
