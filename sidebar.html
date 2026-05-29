@@ -42,7 +42,7 @@
       <dialog id="advancedSection" popover autofocus>
         <div class="menu-label">Provider</div>
         <label class="model-option">
-          <input type="radio" name="provider" value="gemini">
+          <input type="radio" name="provider" value="gemini" checked>
           <span>Gemini</span>
         </label>
         <label class="model-option">
@@ -50,14 +50,60 @@
           <span>ARK (Doubao)</span>
         </label>
 
-        <div class="menu-label">Model</div>
-        <div id="modelList"></div>
-        <input type="text" id="arkCustomModel" class="is-hidden" placeholder="model id or ep-xxxx endpoint id">
+        <div id="geminiGroup">
+          <div class="menu-label">Gemini Model</div>
+          <label class="model-option">
+            <input type="radio" name="geminiModel" value="gemini-3-flash-preview" checked>
+            <span>Gemini 3 Flash Preview</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="geminiModel" value="gemini-3.1-flash-lite">
+            <span>Gemini 3.1 Flash-Lite</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="geminiModel" value="gemini-3.5-flash">
+            <span>Gemini 3.5 Flash</span>
+          </label>
+        </div>
 
-        <div id="thinkingSection" class="is-hidden">
+        <div id="arkGroup">
+          <div class="menu-label">ARK Model</div>
+          <label class="model-option">
+            <input type="radio" name="arkModel" value="doubao-seed-2-0-pro-260215" checked>
+            <span>Doubao Seed 2.0 Pro</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="arkModel" value="doubao-seed-2-0-lite-260428">
+            <span>Doubao Seed 2.0 Lite</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="arkModel" value="doubao-seed-2-0-mini">
+            <span>Doubao Seed 2.0 Mini</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="arkModel" value="doubao-seed-2-0-code">
+            <span>Doubao Seed 2.0 Code</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="arkModel" value="doubao-seed-1-8">
+            <span>Doubao Seed 1.8</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="arkModel" value="doubao-seed-1-6">
+            <span>Doubao Seed 1.6</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="arkModel" value="doubao-seed-1-6-flash">
+            <span>Doubao Seed 1.6 Flash (no thinking)</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="arkModel" value="doubao-seed-1-6-vision">
+            <span>Doubao Seed 1.6 Vision (no thinking)</span>
+          </label>
+
           <div class="menu-label">Thinking</div>
           <label class="model-option">
-            <input type="radio" name="arkThinking" value="disabled">
+            <input type="radio" name="arkThinking" value="disabled" checked>
             <span>Off (faster)</span>
           </label>
           <label class="model-option">

@@ -300,10 +300,18 @@ dialog::backdrop {
   width: auto;
 }
 
-#arkCustomModel {
-  width: calc(100% - 20px);
-  margin: 0 10px 6px 10px;
-  font-size: 0.8125rem;
+/* Show only the model group for the selected provider. */
+#geminiGroup,
+#arkGroup {
+  display: none;
+}
+
+#advancedSection:has(input[name="provider"][value="gemini"]:checked) #geminiGroup {
+  display: block;
+}
+
+#advancedSection:has(input[name="provider"][value="ark"]:checked) #arkGroup {
+  display: block;
 }
 
 @media (prefers-color-scheme: dark) {
