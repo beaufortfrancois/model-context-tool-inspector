@@ -184,6 +184,13 @@ async function initProvider() {
   localStorage.arkModel ??= env?.arkModel || 'doubao-seed-2-0-pro-260215';
   localStorage.arkThinking ??= env?.arkThinking || 'disabled';
 
+  refreshClient();
+  updateApiKeyField();
+  syncAdvancedUI();
+}
+
+// (Re)build the active provider's client and gate the Send/Reset buttons on it.
+function refreshClient() {
   if (isArk()) {
     genAI = localStorage.arkApiKey
       ? new ArkAI({
@@ -195,12 +202,9 @@ async function initProvider() {
   } else {
     genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
   }
-
   chat = undefined;
   promptBtn.disabled = !genAI;
   resetBtn.disabled = !genAI;
-  updateApiKeyField();
-  syncAdvancedUI();
 }
 
 function updateApiKeyField() {
@@ -370,13 +374,16 @@ resetBtn.onclick = () => {
   suggestUserPrompt();
 };
 
-apiKeyInput.onchange = async () => {
+// Save live so the Send button enables as soon as a key is present; rebuild the
+// client directly rather than via initProvider so the input cursor isn't reset.
+apiKeyInput.oninput = () => {
   const apiKey = apiKeyInput.value.trim();
   if (isArk()) localStorage.arkApiKey = apiKey;
   else localStorage.apiKey = apiKey;
-  await initProvider();
-  suggestUserPrompt();
+  refreshClient();
 };
+
+apiKeyInput.onchange = () => suggestUserPrompt();
 
 traceBtn.onclick = async () => {
   const text = JSON.stringify(trace, '', ' ');
