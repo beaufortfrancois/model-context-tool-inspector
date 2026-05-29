@@ -3,8 +3,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GoogleGenAI } from './js-genai.js';
 import { ArkAI } from './ark.js';
+
+// The Gemini SDK is bundled by `npm install` (postinstall esbuild step) into
+// js-genai.js, which is gitignored. Load it lazily so the rest of the sidebar -
+// including the ARK provider, which doesn't need it - still works when the
+// bundle is absent. A static import here would abort the whole module.
+let GoogleGenAI;
+async function loadGoogleGenAI() {
+  if (!GoogleGenAI) ({ GoogleGenAI } = await import('./js-genai.js'));
+  return GoogleGenAI;
+}
 
 const statusDiv = document.getElementById('status');
 const tbody = document.getElementById('tableBody');
@@ -184,13 +193,13 @@ async function initProvider() {
   localStorage.arkModel ??= env?.arkModel || 'doubao-seed-2-0-pro-260215';
   localStorage.arkThinking ??= env?.arkThinking || 'disabled';
 
-  refreshClient();
+  await refreshClient();
   updateApiKeyField();
   syncAdvancedUI();
 }
 
 // (Re)build the active provider's client and gate the Send/Reset buttons on it.
-function refreshClient() {
+async function refreshClient() {
   if (isArk()) {
     genAI = localStorage.arkApiKey
       ? new ArkAI({
@@ -199,8 +208,16 @@ function refreshClient() {
           thinkingMode: localStorage.arkThinking,
         })
       : undefined;
+  } else if (localStorage.apiKey) {
+    try {
+      const GenAI = await loadGoogleGenAI();
+      genAI = new GenAI({ apiKey: localStorage.apiKey });
+    } catch (error) {
+      genAI = undefined;
+      logPrompt(`⚠️ Gemini SDK not bundled. Run "npm install", or use the ARK provider. (${error})`);
+    }
   } else {
-    genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
+    genAI = undefined;
   }
   chat = undefined;
   promptBtn.disabled = !genAI;
@@ -376,11 +393,11 @@ resetBtn.onclick = () => {
 
 // Save live so the Send button enables as soon as a key is present; rebuild the
 // client directly rather than via initProvider so the input cursor isn't reset.
-apiKeyInput.oninput = () => {
+apiKeyInput.oninput = async () => {
   const apiKey = apiKeyInput.value.trim();
   if (isArk()) localStorage.arkApiKey = apiKey;
   else localStorage.apiKey = apiKey;
-  refreshClient();
+  await refreshClient();
 };
 
 apiKeyInput.onchange = () => suggestUserPrompt();
