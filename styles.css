@@ -175,11 +175,8 @@ details.log-entry > summary.log-label {
   border-radius: 6px;
   border: 1px solid #e5e7eb;
   overflow-y: auto;
-  max-height: 400px;
+  max-height: 60vh;
   display: block;
-}
-.table-container:has(tbody.prettify) {
-  max-height: fit-content;
 }
 
 table {
