@@ -319,12 +319,17 @@ executeBtn.onclick = async () => {
 
 async function executeTool(tabId, name, inputArgs, location) {
   try {
+    // Send only to the frame that owns the tool.
+    // If location matches the top-level URL or is empty, target frameId 0.
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const options = (!location || location === tab.url) ? { frameId: 0 } : {};
+    
     const result = await chrome.tabs.sendMessage(tabId, {
       action: 'EXECUTE_TOOL',
       name,
       inputArgs,
       location,
-    });
+    }, options);
     if (result !== null) return result;
   } catch (error) {
     if (!error.message.includes('message channel is closed')) throw error;
