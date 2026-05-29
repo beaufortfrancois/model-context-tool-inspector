@@ -335,8 +335,16 @@ promptBtn.onclick = async () => {
 
 let trace = [];
 
+// Incremented on every Send and on Reset. A running loop captures the value at
+// start and bails the moment it no longer matches, so Reset stops the run.
+let activeRunId = 0;
+
 async function promptAI() {
+  const myRun = ++activeRunId;
+  const stopped = () => myRun !== activeRunId;
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (stopped()) return;
 
   chat ??= genAI.chats.create({ model: currentModel() });
 
@@ -346,6 +354,7 @@ async function promptAI() {
   const sendMessageParams = { message, config: getConfig() };
   trace.push({ userPrompt: sendMessageParams });
   let currentResult = await chat.sendMessage(sendMessageParams);
+  if (stopped()) return;
   let finalResponseGiven = false;
 
   while (!finalResponseGiven) {
@@ -363,15 +372,18 @@ async function promptAI() {
     } else {
       const toolResponses = [];
       for (const { name: toolName, args } of functionCalls) {
+        if (stopped()) return;
         const [locationIndex, name] = toolName.split(/_(.*)/s)[1].split(/_(.*)/s);
         const location = currentTools[locationIndex].location;
         const inputArgs = JSON.stringify(args);
         logJSON('toolcall', `Tool call → ${name}`, inputArgs);
         try {
           const result = await executeTool(tab.id, name, inputArgs, location);
+          if (stopped()) return;
           toolResponses.push({ functionResponse: { name: toolName, response: { result } } });
           logJSON('toolresult', `Tool result → ${name}`, result);
         } catch (e) {
+          if (stopped()) return;
           logLine('error', `Tool error → ${name}`, e.message);
           toolResponses.push({
             functionResponse: { name: toolName, response: { error: e.message } },
@@ -382,15 +394,18 @@ async function promptAI() {
       // FIXME: New WebMCP tools may not be discovered if there's a navigation.
       // An articial timeout is introduced for mitigation but it's not robust enough.
       await new Promise((r) => setTimeout(r, 500));
+      if (stopped()) return;
 
       const sendMessageParams = { message: toolResponses, config: getConfig() };
       trace.push({ userPrompt: sendMessageParams });
       currentResult = await chat.sendMessage(sendMessageParams);
+      if (stopped()) return;
     }
   }
 }
 
 resetBtn.onclick = () => {
+  activeRunId++;
   chat = undefined;
   trace = [];
   userPromptText.value = '';
