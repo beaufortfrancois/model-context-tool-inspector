@@ -382,9 +382,28 @@ async function promptAI() {
       const toolResponses = [];
       for (const { name: toolName, args } of functionCalls) {
         if (stopped()) return;
+        const inputArgs = JSON.stringify(args);
+
+        const globalTool = GLOBAL_TOOLS[toolName];
+        if (globalTool) {
+          logJSON('toolcall', `Tool call → ${toolName}`, inputArgs);
+          try {
+            const result = await globalTool.execute(tab.id, args);
+            if (stopped()) return;
+            toolResponses.push({ functionResponse: { name: toolName, response: { result } } });
+            logJSON('toolresult', `Tool result → ${toolName}`, result, { open: false });
+          } catch (e) {
+            if (stopped()) return;
+            logLine('error', `Tool error → ${toolName}`, e.message);
+            toolResponses.push({
+              functionResponse: { name: toolName, response: { error: e.message } },
+            });
+          }
+          continue;
+        }
+
         const [locationIndex, name] = toolName.split(/_(.*)/s)[1].split(/_(.*)/s);
         const location = currentTools[locationIndex].location;
-        const inputArgs = JSON.stringify(args);
         logJSON('toolcall', `Tool call → ${name}`, inputArgs);
         try {
           const result = await executeTool(tab.id, name, inputArgs, location);
@@ -553,6 +572,26 @@ function getFormattedDate() {
   });
 }
 
+// Tools the agent always has, independent of the page's WebMCP tools. Keyed by
+// the exact function name sent to the model so the run loop can dispatch them
+// before falling back to the page-tool naming scheme.
+const GLOBAL_TOOLS = {
+  prev_page: {
+    declaration: {
+      name: 'prev_page',
+      description:
+        'Navigate the current tab back to the previous page in its browsing ' +
+        'history. Use this to undo a navigation or return to an earlier page.',
+      parametersJsonSchema: { type: 'object', properties: {} },
+    },
+    async execute(tabId) {
+      await chrome.tabs.goBack(tabId);
+      await waitForPageLoad(tabId);
+      return 'Navigated back to the previous page.';
+    },
+  },
+};
+
 function getConfig() {
   const systemInstruction = [
     'You are an assistant embedded in a browser tab.',
@@ -563,16 +602,19 @@ function getConfig() {
     'CRITICAL RULE: Do not try to use other tools than the available ones.',
   ];
 
-  const functionDeclarations = currentTools.map((tool) => {
-    const locationIndex = currentTools.findIndex((t) => t.location === tool.location);
-    return {
-      name: `_${locationIndex}_${tool.name}`,
-      description: tool.description,
-      parametersJsonSchema: tool.inputSchema
-        ? JSON.parse(tool.inputSchema)
-        : { type: 'object', properties: {} },
-    };
-  });
+  const functionDeclarations = [
+    ...Object.values(GLOBAL_TOOLS).map((t) => t.declaration),
+    ...(currentTools || []).map((tool) => {
+      const locationIndex = currentTools.findIndex((t) => t.location === tool.location);
+      return {
+        name: `_${locationIndex}_${tool.name}`,
+        description: tool.description,
+        parametersJsonSchema: tool.inputSchema
+          ? JSON.parse(tool.inputSchema)
+          : { type: 'object', properties: {} },
+      };
+    }),
+  ];
   return { systemInstruction, tools: [{ functionDeclarations }] };
 }
 
