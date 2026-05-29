@@ -49,30 +49,50 @@ button:hover {
   max-height: 200px;
   overflow-y: auto;
   margin-bottom: 20px;
+}
+
+/* Minimal, consistent scrollbars across every scroll area. A translucent grey
+   thumb on a transparent track reads correctly on both the light table and the
+   dark log boxes. */
+.table-container,
+#promptResults,
+#toolResults,
+textarea {
   scrollbar-width: thin;
-  scrollbar-color: #4b4b4b transparent;
+  scrollbar-color: rgb(128 128 128 / 50%) transparent;
 }
 
+.table-container::-webkit-scrollbar,
 #promptResults::-webkit-scrollbar,
-#toolResults::-webkit-scrollbar {
+#toolResults::-webkit-scrollbar,
+textarea::-webkit-scrollbar {
   width: 10px;
+  height: 10px;
 }
 
+.table-container::-webkit-scrollbar-track,
 #promptResults::-webkit-scrollbar-track,
-#toolResults::-webkit-scrollbar-track {
+#toolResults::-webkit-scrollbar-track,
+textarea::-webkit-scrollbar-track {
   background: transparent;
 }
 
+.table-container::-webkit-scrollbar-thumb,
 #promptResults::-webkit-scrollbar-thumb,
-#toolResults::-webkit-scrollbar-thumb {
-  background: #4b4b4b;
-  border: 2px solid #222;
+#toolResults::-webkit-scrollbar-thumb,
+textarea::-webkit-scrollbar-thumb {
+  background: rgb(128 128 128 / 50%);
+  border: 2px solid transparent;
+  background-clip: padding-box;
   border-radius: 6px;
 }
 
+.table-container::-webkit-scrollbar-thumb:hover,
 #promptResults::-webkit-scrollbar-thumb:hover,
-#toolResults::-webkit-scrollbar-thumb:hover {
-  background: #5f5f5f;
+#toolResults::-webkit-scrollbar-thumb:hover,
+textarea::-webkit-scrollbar-thumb:hover {
+  background: rgb(128 128 128 / 80%);
+  background-clip: padding-box;
 }
 
 #promptResults {
@@ -154,7 +174,7 @@ details.log-entry > summary.log-label {
   overflow-x: auto;
   border-radius: 6px;
   border: 1px solid #e5e7eb;
-  overflow-y: scroll;
+  overflow-y: auto;
   max-height: 400px;
   display: block;
 }
@@ -167,6 +187,7 @@ table {
   border-collapse: collapse;
   font-size: 0.6875rem;
   background: white;
+  table-layout: fixed;
 }
 
 th,
@@ -174,6 +195,8 @@ td {
   text-align: left;
   padding: 8px;
   border-bottom: 1px solid #e5e7eb;
+  vertical-align: top;
+  word-break: break-word;
 }
 
 th {

@@ -94,10 +94,19 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
   await loadHljs().catch(() => {});
 
   const KEYS = ['name', 'description', 'inputSchema', 'readOnlyHint', 'untrustedContentHint'];
+  // Fixed widths for the predictable columns; inputSchema (left unset) absorbs
+  // the remaining space.
+  const COL_WIDTHS = {
+    name: '14%',
+    description: '28%',
+    readOnlyHint: '9%',
+    untrustedContentHint: '11%',
+  };
   const keys = KEYS.filter((key) => tools.some((tool) => key in tool));
   keys.forEach((key) => {
     const th = document.createElement('th');
     th.textContent = key;
+    if (COL_WIDTHS[key]) th.style.width = COL_WIDTHS[key];
     thead.appendChild(th);
   });
 
