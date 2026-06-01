@@ -64,6 +64,11 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
       reply(document.querySelector('script[type="application/ld+json"]')?.textContent);
     }
   } catch ({ message }) {
+    // A synchronous throw here (e.g. the testing-flag check, which runs before
+    // EXECUTE_TOOL reaches its async reply) would otherwise leave the caller's
+    // sendMessage resolving to undefined - surfacing as an empty/garbled tool
+    // result instead of the actual error. Reply with it as well as broadcasting.
+    reply(JSON.stringify(message));
     chrome.runtime.sendMessage({ message });
   }
 });
