@@ -74,6 +74,9 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
   // up. Done before the active-tab gate below, which would otherwise drop it.
   if (tools && activeRun && sender.tab && sender.tab.id === activeRun.tabId) {
     activeRun.tools = tools;
+    // Wake a turn waiting for the destination page to report its tools after a
+    // navigation (see the post-tool-call wait in promptAI).
+    activeRun.onToolsUpdate?.();
   }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -458,10 +461,20 @@ async function promptAI() {
         }
       }
 
-      // FIXME: New WebMCP tools may not be discovered if there's a navigation.
-      // An articial timeout is introduced for mitigation but it's not robust enough.
+      // A tool may have navigated the bound tab (a real-affordance click; on
+      // some sites a full-document load). The short settle covers the common
+      // fast case and gives a deferred navigation time to start; if the tab is
+      // then still loading, wait for the load to finish and for the destination
+      // page to re-report its tools, so the next turn sees that page's tool list
+      // rather than the previous page's. Bounded so a turn never hangs.
       await new Promise((r) => setTimeout(r, 500));
       if (stopped()) return;
+      const navTab = await chrome.tabs.get(run.tabId).catch(() => null);
+      if (navTab && navTab.status === 'loading') {
+        await waitForPageLoad(run.tabId);
+        await waitForToolsUpdate(run, 2000);
+        if (stopped()) return;
+      }
 
       const sendMessageParams = { message: toolResponses, config: getConfig(run.tools) };
       trace.push({ userPrompt: sendMessageParams });
@@ -816,6 +829,22 @@ function waitForPageLoad(tabId) {
       if (updatedTabId === tabId && changeInfo.status === 'complete') done();
     };
     chrome.tabs.onUpdated.addListener(listener);
+  });
+}
+
+// Resolves when the bound run's tool snapshot is next refreshed by the message
+// listener (the destination page reported its tools after a navigation), or
+// after `timeout` ms so a turn never blocks indefinitely. Single-shot: the
+// resolver is cleared once it fires or times out.
+function waitForToolsUpdate(run, timeout) {
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      run.onToolsUpdate = null;
+      resolve();
+    };
+    const timer = setTimeout(done, timeout);
+    run.onToolsUpdate = done;
   });
 }
 
