@@ -57,10 +57,24 @@ const globalToolsList = document.getElementById('globalToolsList');
 
 let currentTools;
 
+// The in-flight agent run, bound to the tab it started on plus a snapshot of
+// that tab's tools. The loop reads from here instead of the live `currentTools`
+// so switching tabs (which repoints `currentTools` at the new active tab) can't
+// corrupt a run. The listener below keeps `tools` fresh for the bound tab so an
+// in-run navigation is still discovered. Declared before the listener so a
+// LIST_TOOLS reply during startup can't read it in its temporal dead zone.
+let activeRun = null;
 
 // Listen for the results coming back from content.js
 chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
   if (sender.frameId && sender.frameId !== 0) return;
+
+  // Keep the running agent's tool snapshot fresh for the tab it's bound to, even
+  // when that tab isn't the active one, so an in-run navigation is still picked
+  // up. Done before the active-tab gate below, which would otherwise drop it.
+  if (tools && activeRun && sender.tab && sender.tab.id === activeRun.tabId) {
+    activeRun.tools = tools;
+  }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (sender.tab && sender.tab.id !== tab.id) return;
@@ -378,12 +392,14 @@ async function promptAI() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (stopped()) return;
 
+  const run = (activeRun = { id: myRun, tabId: tab.id, tools: currentTools || [] });
+
   chat ??= genAI.chats.create({ model: currentModel() });
 
   const message = userPromptText.value;
   userPromptText.value = '';
   logLine('user', 'User', message);
-  const sendMessageParams = { message, config: getConfig() };
+  const sendMessageParams = { message, config: getConfig(run.tools) };
   trace.push({ userPrompt: sendMessageParams });
   let currentResult = await chat.sendMessage(sendMessageParams);
   if (stopped()) return;
@@ -426,7 +442,7 @@ async function promptAI() {
         }
 
         const [locationIndex, name] = toolName.split(/_(.*)/s)[1].split(/_(.*)/s);
-        const location = currentTools[locationIndex].location;
+        const location = run.tools[locationIndex].location;
         logJSON('toolcall', `Tool call → ${name}`, inputArgs);
         try {
           const result = await executeTool(tab.id, name, inputArgs, location);
@@ -447,7 +463,7 @@ async function promptAI() {
       await new Promise((r) => setTimeout(r, 500));
       if (stopped()) return;
 
-      const sendMessageParams = { message: toolResponses, config: getConfig() };
+      const sendMessageParams = { message: toolResponses, config: getConfig(run.tools) };
       trace.push({ userPrompt: sendMessageParams });
       currentResult = await chat.sendMessage(sendMessageParams);
       if (stopped()) return;
@@ -457,6 +473,7 @@ async function promptAI() {
 
 resetBtn.onclick = () => {
   activeRunId++;
+  activeRun = null;
   chat = undefined;
   trace = [];
   userPromptText.value = '';
