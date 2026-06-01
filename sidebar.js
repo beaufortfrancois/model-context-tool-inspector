@@ -40,6 +40,7 @@ const resetBtn = document.getElementById('resetBtn');
 const apiKeyInput = document.getElementById('apiKeyInput');
 const promptResults = document.getElementById('promptResults');
 const advancedSection = document.getElementById('advancedSection');
+const globalToolsList = document.getElementById('globalToolsList');
 
 // First, request list of tools from content script living in top-level frame.
 (async () => {
@@ -181,6 +182,28 @@ function isArk() {
 
 function currentModel() {
   return isArk() ? localStorage.arkModel : localStorage.model;
+}
+
+// Built-in (page-independent) tools are opt-in per tool. The enabled set is a
+// JSON name->bool map in localStorage; an absent or unparseable value means all
+// off. Old single-flag values (e.g. 'on') simply fall back to nothing enabled.
+function enabledGlobalTools() {
+  try {
+    const map = JSON.parse(localStorage.globalTools || '{}');
+    return map && typeof map === 'object' ? map : {};
+  } catch {
+    return {};
+  }
+}
+
+function isGlobalToolEnabled(name) {
+  return enabledGlobalTools()[name] === true;
+}
+
+function setGlobalToolEnabled(name, on) {
+  const map = enabledGlobalTools();
+  map[name] = on;
+  localStorage.globalTools = JSON.stringify(map);
 }
 
 async function initProvider() {
@@ -577,6 +600,7 @@ function getFormattedDate() {
 // before falling back to the page-tool naming scheme.
 const GLOBAL_TOOLS = {
   prev_page: {
+    label: 'Previous page',
     declaration: {
       name: 'prev_page',
       description:
@@ -592,7 +616,27 @@ const GLOBAL_TOOLS = {
   },
 };
 
-function getConfig() {
+// Build the Tools popover from GLOBAL_TOOLS so new entries appear automatically,
+// each with its own persisted enable/disable checkbox.
+function renderGlobalToolsMenu() {
+  globalToolsList.innerHTML = '';
+  for (const [name, tool] of Object.entries(GLOBAL_TOOLS)) {
+    const option = document.createElement('label');
+    option.className = 'model-option';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.checked = isGlobalToolEnabled(name);
+    checkbox.onchange = () => setGlobalToolEnabled(name, checkbox.checked);
+    const text = document.createElement('span');
+    text.textContent = tool.label || name;
+    option.append(checkbox, text);
+    globalToolsList.appendChild(option);
+  }
+}
+
+renderGlobalToolsMenu();
+
+function getConfig(tools = currentTools) {
   const systemInstruction = [
     'You are an assistant embedded in a browser tab.',
     'User prompts typically refer to the current tab unless stated otherwise.',
@@ -603,9 +647,11 @@ function getConfig() {
   ];
 
   const functionDeclarations = [
-    ...Object.values(GLOBAL_TOOLS).map((t) => t.declaration),
-    ...(currentTools || []).map((tool) => {
-      const locationIndex = currentTools.findIndex((t) => t.location === tool.location);
+    ...Object.entries(GLOBAL_TOOLS)
+      .filter(([name]) => isGlobalToolEnabled(name))
+      .map(([, tool]) => tool.declaration),
+    ...(tools || []).map((tool) => {
+      const locationIndex = (tools || []).findIndex((t) => t.location === tool.location);
       return {
         name: `_${locationIndex}_${tool.name}`,
         description: tool.description,

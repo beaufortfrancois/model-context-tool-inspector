@@ -39,6 +39,11 @@
         <textarea id="userPromptText"></textarea>
       </div>
 
+      <dialog id="globalToolsSection" popover autofocus>
+        <div class="menu-label">Global tools</div>
+        <div id="globalToolsList"></div>
+      </dialog>
+
       <dialog id="advancedSection" popover autofocus>
         <div class="menu-label">Provider</div>
         <label class="model-option">
@@ -125,6 +130,7 @@
         <button id="suggestBtn" class="secondary" disabled>Suggest</button>
         <button id="resetBtn" class="secondary" disabled>Reset</button>
         <button id="configBtn" class="secondary" popovertarget="advancedSection">Config</button>
+        <button id="toolsBtn" class="secondary" popovertarget="globalToolsSection">Tools</button>
         <button id="traceBtn" class="secondary">Copy trace</button>
       </div>
 
