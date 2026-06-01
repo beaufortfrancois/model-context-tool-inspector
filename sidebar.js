@@ -343,21 +343,34 @@ suggestBtn.onclick = async () => {
   if (suggestBtn.disabled) return;
   suggestBtn.disabled = true;
   try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    // Give the model a clean view of the tools: parse inputSchema out of its
+    // stored string form and drop transport noise (location), so it reasons over
+    // real JSON Schema rather than a stringified blob.
+    const toolSummary = currentTools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      readOnly: !!t.readOnlyHint,
+      inputSchema: t.inputSchema ? JSON.parse(t.inputSchema) : { type: 'object', properties: {} },
+    }));
     const response = await genAI.models.generateContent({
       model: currentModel(),
       contents: [
-        '**Context:**',
-        `Today's date is: ${getFormattedDate()}`,
-        '**Tool Rules:**',
-        '1. **Bank Transaction Filter:** Use **PAST** dates only (e.g., "last month," "December 15th," "yesterday").',
-        '2. **Flight Search:** Use **FUTURE** dates only (e.g., "next week," "February 15th").',
-        '3. **Accommodation Search:** Use **FUTURE** dates only (e.g., "next weekend," "March 15th").',
-        '**Task:**',
-        'Generate one natural user query for a range of tools below, ideally chaining them together.',
-        'Ensure the date makes sense relative to today.',
-        'Output the query text only.',
-        '**Tools:**',
-        JSON.stringify(currentTools),
+        'You generate ONE realistic user request used to test a browser agent against the tools a web page currently exposes.',
+        '',
+        'Guidelines:',
+        '- Ground the request in what these specific tools actually do and in the page the user is on; never assume capabilities the tools do not provide.',
+        '- Prefer a request that naturally chains several of the tools together; fall back to a single tool when that is all the set supports.',
+        '- Supply concrete, plausible values for required inputs (real-sounding search terms, names, topics), never placeholders like "example" or "string".',
+        "- Mention a date or time only if a tool actually takes one. When it does, choose a date that fits that tool's purpose relative to today: past dates for searching or filtering existing content, future dates for booking or scheduling.",
+        "- Phrase it the way a real user of this site would, including the site's own language when that is what its users would use.",
+        '- Output the request text only: no surrounding quotes, no markdown, no explanation.',
+        '',
+        `Today's date is: ${getFormattedDate()}.`,
+        `Current page: ${tab?.title || '(untitled)'} - ${tab?.url || 'unknown'}`,
+        '',
+        'Tools available on this page:',
+        JSON.stringify(toolSummary, null, 2),
       ],
     });
     userPromptText.value = response.text?.trim() || '';
