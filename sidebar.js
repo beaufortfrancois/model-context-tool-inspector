@@ -66,7 +66,7 @@ let currentTools;
 let activeRun = null;
 
 // Listen for the results coming back from content.js
-chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
+chrome.runtime.onMessage.addListener(async ({ message, tools, url, ready }, sender) => {
   if (sender.frameId && sender.frameId !== 0) return;
 
   // Keep the running agent's tool snapshot fresh for the tab it's bound to, even
@@ -75,8 +75,10 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => 
   if (tools && activeRun && sender.tab && sender.tab.id === activeRun.tabId) {
     activeRun.tools = tools;
     // Wake a turn waiting for the destination page to report its tools after a
-    // navigation (see the post-tool-call wait in promptAI).
-    activeRun.onToolsUpdate?.();
+    // navigation (see the post-tool-call wait in promptAI). `ready` is true only
+    // for the EXPERIMENTAL webmcp:ready-driven push (see content.js) — the
+    // settled, full-tool-set snapshot; toolchange-driven pushes pass it falsy.
+    activeRun.onToolsUpdate?.(ready);
   }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -824,19 +826,44 @@ function waitForPageLoad(tabId) {
   });
 }
 
-// Resolves when the bound run's tool snapshot is next refreshed by the message
-// listener (the destination page reported its tools after a navigation), or
-// after `timeout` ms so a turn never blocks indefinitely. Single-shot: the
-// resolver is cleared once it fires or times out.
+// EXPERIMENTAL / WIP — specialized to webmcp-public-sites; revisit later.
+//
+// Resolves when the bound run's destination page has settled its WebMCP tools
+// after a navigation, so the next model turn sees the new page's tools and not
+// the old ones. Single-shot: the resolver is cleared once it fires or times out,
+// and every wait is bounded so a turn never blocks indefinitely.
+//
+// Resolution preference, by trustworthiness of the trigger:
+//  1. A `ready`-tagged push (the project-specific `webmcp:ready` signal relayed
+//     by content.js) means injection for the new route has finished and the full
+//     tool set is enumerable — resolve immediately on it. This is the whole point
+//     of consuming the signal: deterministic instead of timeout-based.
+//  2. A plain toolchange-driven push may be mid-batch (a partial set). A
+//     `webmcp:ready` often follows within a few ms, so we give it a short grace
+//     window and resolve at its end if no ready arrives. This keeps non-ready and
+//     non-instrumented pages responsive while still preferring the settled signal.
+//  3. No push at all (page emits neither) → the outer `timeout` fallback.
+//
+// CAVEAT: pages outside webmcp-public-sites never emit `webmcp:ready`, so they
+// always resolve via path 2 or 3, i.e. on the grace/fallback timers rather than
+// a real signal. This couples the generic inspector to our instrumented sites
+// and should be reconsidered (e.g. fold the nav/timeout heuristics and this
+// signal into one model) in a future pass.
+const READY_GRACE_MS = 400;
 function waitForToolsUpdate(run, timeout) {
   return new Promise((resolve) => {
+    let graceTimer = null;
     const done = () => {
-      clearTimeout(timer);
+      clearTimeout(fallbackTimer);
+      clearTimeout(graceTimer);
       run.onToolsUpdate = null;
       resolve();
     };
-    const timer = setTimeout(done, timeout);
-    run.onToolsUpdate = done;
+    const fallbackTimer = setTimeout(done, timeout);
+    run.onToolsUpdate = (ready) => {
+      if (ready) return done();                       // settled signal -> resolve now
+      if (!graceTimer) graceTimer = setTimeout(done, READY_GRACE_MS);
+    };
   });
 }
 
