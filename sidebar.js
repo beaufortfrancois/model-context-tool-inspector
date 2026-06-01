@@ -421,6 +421,8 @@ async function promptAI() {
       }
       finalResponseGiven = true;
     } else {
+      // Armed before the batch so a load that starts during a tool call is seen.
+      const nav = watchNavigation(run);
       const toolResponses = [];
       for (const { name: toolName, args } of functionCalls) {
         if (stopped()) return;
@@ -461,20 +463,10 @@ async function promptAI() {
         }
       }
 
-      // A tool may have navigated the bound tab (a real-affordance click; on
-      // some sites a full-document load). The short settle covers the common
-      // fast case and gives a deferred navigation time to start; if the tab is
-      // then still loading, wait for the load to finish and for the destination
-      // page to re-report its tools, so the next turn sees that page's tool list
-      // rather than the previous page's. Bounded so a turn never hangs.
-      await new Promise((r) => setTimeout(r, 500));
+      // If a tool navigated the bound tab, wait for the new page (and its tools)
+      // to settle so the next turn sees that page's tool list, not the old one.
+      await nav.settle();
       if (stopped()) return;
-      const navTab = await chrome.tabs.get(run.tabId).catch(() => null);
-      if (navTab && navTab.status === 'loading') {
-        await waitForPageLoad(run.tabId);
-        await waitForToolsUpdate(run, 2000);
-        if (stopped()) return;
-      }
 
       const sendMessageParams = { message: toolResponses, config: getConfig(run.tools) };
       trace.push({ userPrompt: sendMessageParams });
@@ -846,6 +838,56 @@ function waitForToolsUpdate(run, timeout) {
     const timer = setTimeout(done, timeout);
     run.onToolsUpdate = done;
   });
+}
+
+// Grace given for a deferred navigation (tool returns, then the page navigates)
+// to start. Not a load-bearing delay: watchNavigation resolves the moment a
+// load actually starts and only waits the full grace when nothing navigates.
+const NAV_START_GRACE_MS = 500;
+const TOOLS_UPDATE_TIMEOUT_MS = 2000;
+
+// Detects a navigation a tool batch triggered on the bound tab and waits for it
+// to settle. Arm it (call) before running the batch so a load starting mid-call
+// is caught, then call settle() after. The tab's `loading` status is the
+// navigation-start signal (via tabs.onUpdated, already used here, so no extra
+// webNavigation permission). settle() returns at once when nothing navigated;
+// otherwise it waits for the load to finish and the destination page to
+// re-report its tools, so the next model turn sees that page's tools instead of
+// the previous page's. Every wait is bounded so a turn never hangs.
+function watchNavigation(run) {
+  let started = false;
+  let wake = null;
+  const onUpdated = (id, info) => {
+    if (id === run.tabId && info.status === 'loading') {
+      started = true;
+      wake?.();
+    }
+  };
+  chrome.tabs.onUpdated.addListener(onUpdated);
+  return {
+    async settle() {
+      try {
+        if (!started) {
+          await new Promise((resolve) => {
+            const timer = setTimeout(resolve, NAV_START_GRACE_MS);
+            wake = () => {
+              clearTimeout(timer);
+              resolve();
+            };
+          });
+        }
+        if (!started) return;
+        // The load may already be complete (a tool that waited for it inline),
+        // so only wait when the tab is still loading; otherwise we'd block on a
+        // `complete` that already fired until the page-load cap.
+        const tab = await chrome.tabs.get(run.tabId).catch(() => null);
+        if (tab?.status === 'loading') await waitForPageLoad(run.tabId);
+        await waitForToolsUpdate(run, TOOLS_UPDATE_TIMEOUT_MS);
+      } finally {
+        chrome.tabs.onUpdated.removeListener(onUpdated);
+      }
+    },
+  };
 }
 
 document.querySelectorAll('.collapsible-header').forEach((header) => {
