@@ -684,9 +684,9 @@ function getConfig(tools = currentTools) {
     'You are an assistant embedded in a browser tab.',
     'User prompts typically refer to the current tab unless stated otherwise.',
     'Use the provided tools to query page content when you need it.',
-    `Today's date is: ${getFormattedDate()}`,
-    'CRITICAL RULE: Whenever the user provides a relative date (e.g., "next Monday", "tomorrow", "in 3 days"),  you must calculate the exact calendar date based on today\'s date.',
-    'CRITICAL RULE: Do not try to use other tools than the available ones.',
+    `Today's date is: ${getFormattedDate()}.`,
+    'If the user gives a relative date (e.g. "next Monday", "tomorrow", "in 3 days"), resolve it to an exact calendar date based on today before passing it to a tool.',
+    'CRITICAL RULE: Only use the tools provided to you; do not assume or invent others.',
   ];
 
   const functionDeclarations = [
