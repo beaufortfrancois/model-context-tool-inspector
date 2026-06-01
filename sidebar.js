@@ -790,13 +790,24 @@ function generateTemplateFromSchema(schema) {
   }
 }
 
+// Cap on how long we wait for a navigation to report `complete`. Back/forward
+// navigations (e.g. the prev_page tool) can be served from the bfcache and may
+// restore instantly without firing a normal load `complete`, which would
+// otherwise leave this promise pending forever and hang the agent run. On
+// timeout we resolve (not reject) so the loop continues against whatever state
+// the tab is in rather than freezing.
+const PAGE_LOAD_TIMEOUT_MS = 30_000;
+
 function waitForPageLoad(tabId) {
   return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      chrome.tabs.onUpdated.removeListener(listener);
+      resolve();
+    };
+    const timer = setTimeout(done, PAGE_LOAD_TIMEOUT_MS);
     const listener = (updatedTabId, changeInfo) => {
-      if (updatedTabId === tabId && changeInfo.status === 'complete') {
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
+      if (updatedTabId === tabId && changeInfo.status === 'complete') done();
     };
     chrome.tabs.onUpdated.addListener(listener);
   });
