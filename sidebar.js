@@ -513,8 +513,14 @@ function updateDefaultValueForInputArgs() {
 // Returns editor-colored HTML, falling back to escaped plain text when the
 // bundle is absent.
 function highlightJSON(json) {
-  if (hljs) return hljs.highlight(json, { language: 'json' }).value;
-  return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // A tool that triggers a navigation can resolve with no value (the result
+  // lives on the next document), so callers may pass undefined here. Coerce to
+  // a string first; otherwise `.replace` / hljs.highlight throw "Cannot read
+  // properties of undefined (reading 'replace')", which the agent loop then
+  // reports as a spurious tool error for what was actually a successful nav.
+  const text = json == null ? '' : String(json);
+  if (hljs) return hljs.highlight(text, { language: 'json' }).value;
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function appendLog(node) {
