@@ -255,14 +255,14 @@ async function initProvider() {
     'doubao-seed-2-0-mini': 'doubao-seed-2-0-mini-260428',
     'doubao-seed-2-0-code': 'doubao-seed-2-0-code-preview-260215',
     'doubao-seed-1-8': 'doubao-seed-1-8-251228',
-    'doubao-seed-1-6-flash': 'doubao-seed-2-0-pro-260215',
-    'doubao-seed-1-6-flash-250828': 'doubao-seed-2-0-pro-260215',
+    'doubao-seed-1-6-flash': 'doubao-seed-2-0-lite-260428',
+    'doubao-seed-1-6-flash-250828': 'doubao-seed-2-0-lite-260428',
     'doubao-seed-1-6-vision': 'doubao-seed-1-6-vision-250815',
   };
   if (ARK_SLUG_MIGRATIONS[localStorage.arkModel]) {
     localStorage.arkModel = ARK_SLUG_MIGRATIONS[localStorage.arkModel];
   }
-  localStorage.arkModel ??= env?.arkModel || 'doubao-seed-2-0-pro-260215';
+  localStorage.arkModel ??= env?.arkModel || 'doubao-seed-2-0-lite-260428';
   localStorage.arkThinking ??= env?.arkThinking || 'disabled';
 
   await refreshClient();
