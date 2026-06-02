@@ -122,11 +122,16 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
   // would clobber the top frame's badge and the panel. Subframes stay silent.
   if (window.top !== window) return;
 
-  // Arm the settled-signal listener immediately. webmcp:ready is a one-shot
-  // window event; adding the listener is safe before the WebMCP API exists, and
-  // doing it now (rather than inside the poll below) means a ready firing within
-  // the first poll interval, or after the discovery window closes, is not missed.
+  // Arm the settled-signal listener immediately. webmcp:ready is a window
+  // CustomEvent the page (re)fires on every kind transition; adding the listener
+  // is safe before the WebMCP API exists, and arming it now (rather than inside
+  // the poll below) means a ready firing within the first poll interval, or after
+  // the discovery window closes, is not missed. On instrumented pages this is
+  // what surfaces the tools; the poll below is only a fallback for a late content
+  // script injection where a ready already fired before we could listen.
   window.addEventListener('webmcp:ready', onWebmcpReady);
+  let readySurfaced = false;
+  window.addEventListener('webmcp:ready', () => { readySurfaced = true; });
 
   let toolchangeArmed = false;
   let elapsed = 0;
@@ -164,11 +169,12 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
   // than STEP_MS, and overlapping ticks would emit duplicate broadcasts. This
   // schedules the next tick only after the current one finishes.
   const tick = async () => {
+    if (readySurfaced) return; // ready already delivered the settled set; defer to it
     armToolchange();
     let n = 0;
     try { n = await countTools(); } catch { n = 0; }
     if (n > 0) {
-      listTools(); // tools are present now: broadcast them once, then stop
+      listTools(); // late-injection fallback: ready was missed, surface tools now
       return;
     }
     elapsed += STEP_MS;
