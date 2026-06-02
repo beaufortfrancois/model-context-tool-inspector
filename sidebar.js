@@ -4,6 +4,7 @@
  */
 
 import { GoogleGenAI } from './js-genai.js';
+import { getIframeOrigins } from './utils.js';
 
 const statusDiv = document.getElementById('status');
 const tbody = document.getElementById('tableBody');
@@ -27,7 +28,8 @@ const advancedSection = document.getElementById('advancedSection');
 (async () => {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS' }, { frameId: 0 });
+    const fromOrigins = await getIframeOrigins(tab.id);
+    await chrome.tabs.sendMessage(tab.id, { action: 'LIST_TOOLS', fromOrigins }, { frameId: 0 });
   } catch (error) {
     const statusDiv = document.getElementById('status');
     statusDiv.textContent = error;

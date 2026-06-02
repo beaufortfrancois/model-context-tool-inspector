@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { getIframeOrigins } from './utils.js';
+
 // Allows users to open the side panel by clicking the action icon.
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
@@ -28,7 +30,9 @@ async function updateBadge(tabId) {
   if (tab.id !== tabId) return;
   chrome.action.setBadgeText({ text: '', tabId });
   chrome.action.setBadgeBackgroundColor({ color: '#2563eb' });
-  chrome.tabs.sendMessage(tabId, { action: 'LIST_TOOLS' }, { frameId: 0 }).catch(({ message }) => {
+  const fromOrigins = await getIframeOrigins(tab.id);
+  const message = { action: 'LIST_TOOLS', fromOrigins };
+  chrome.tabs.sendMessage(tabId, message, { frameId: 0 }).catch(({ message }) => {
     chrome.runtime.sendMessage({ message });
   });
 }
