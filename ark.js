@@ -19,12 +19,12 @@ export const ARK_BASE_URL_DEFAULT = 'https://ark.cn-beijing.volces.com/api/v3';
 export const ARK_MODELS = [
   { id: 'doubao-seed-2-0-pro-260215', label: 'Doubao Seed 2.0 Pro', thinking: true },
   { id: 'doubao-seed-2-0-lite-260428', label: 'Doubao Seed 2.0 Lite', thinking: true },
-  { id: 'doubao-seed-2-0-mini', label: 'Doubao Seed 2.0 Mini', thinking: true },
-  { id: 'doubao-seed-2-0-code', label: 'Doubao Seed 2.0 Code', thinking: true },
-  { id: 'doubao-seed-1-8', label: 'Doubao Seed 1.8', thinking: true },
+  { id: 'doubao-seed-2-0-mini-260428', label: 'Doubao Seed 2.0 Mini', thinking: true },
+  { id: 'doubao-seed-2-0-code-preview-260215', label: 'Doubao Seed 2.0 Code', thinking: true },
+  { id: 'doubao-seed-1-8-251228', label: 'Doubao Seed 1.8', thinking: true },
   { id: 'doubao-seed-1-6', label: 'Doubao Seed 1.6', thinking: true },
-  { id: 'doubao-seed-1-6-flash', label: 'Doubao Seed 1.6 Flash', thinking: false },
-  { id: 'doubao-seed-1-6-vision', label: 'Doubao Seed 1.6 Vision', thinking: false },
+  { id: 'doubao-seed-1-6-flash-250828', label: 'Doubao Seed 1.6 Flash', thinking: false },
+  { id: 'doubao-seed-1-6-vision-250815', label: 'Doubao Seed 1.6 Vision', thinking: false },
 ];
 
 export function modelSupportsThinking(modelId) {

@@ -247,6 +247,18 @@ async function initProvider() {
   // ARK key + model + thinking config.
   if (env?.arkApiKey) localStorage.arkApiKey ??= env.arkApiKey;
   if (env?.arkBaseUrl) localStorage.arkBaseUrl ??= env.arkBaseUrl;
+  // Early ARK slugs shipped without their required date suffix (and `code` was
+  // really `code-preview`), so they 404 on ARK. Heal any such stored selection.
+  const ARK_SLUG_MIGRATIONS = {
+    'doubao-seed-2-0-mini': 'doubao-seed-2-0-mini-260428',
+    'doubao-seed-2-0-code': 'doubao-seed-2-0-code-preview-260215',
+    'doubao-seed-1-8': 'doubao-seed-1-8-251228',
+    'doubao-seed-1-6-flash': 'doubao-seed-1-6-flash-250828',
+    'doubao-seed-1-6-vision': 'doubao-seed-1-6-vision-250815',
+  };
+  if (ARK_SLUG_MIGRATIONS[localStorage.arkModel]) {
+    localStorage.arkModel = ARK_SLUG_MIGRATIONS[localStorage.arkModel];
+  }
   localStorage.arkModel ??= env?.arkModel || 'doubao-seed-2-0-pro-260215';
   localStorage.arkThinking ??= env?.arkThinking || 'disabled';
 
