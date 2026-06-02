@@ -105,13 +105,55 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
   }
 });
 
+// Surface tools without waiting for a LIST_TOOLS message. On full-document
+// navigations (e.g. zhihu) the page registers tools and fires its one-shot
+// `webmcp:ready` at ~1s. Previously the `webmcp:ready` / `toolchange` listeners
+// were armed only inside the LIST_TOOLS handler, which often ran later - or the
+// content script was injected after `ready` already fired - so the settled
+// signal was missed and the panel sat empty until a LIST_TOOLS happened to
+// arrive (measured ~1s+ late). Arm the listeners and enumerate proactively as
+// soon as the WebMCP API exists, retrying briefly until tools appear. Listener
+// refs are stable, so this never double-registers with the LIST_TOOLS path.
+(function discoverToolsOnLoad() {
+  let armed = false;
+  let elapsed = 0;
+  const STEP_MS = 150;
+  const CAP_MS = 4000;
+  const timer = setInterval(() => {
+    const mc = document.modelContext || navigator.modelContext;
+    const testing = navigator.modelContextTesting;
+    if ((mc || testing) && !armed) {
+      armed = true;
+      window.addEventListener('webmcp:ready', onWebmcpReady);
+      if (mc && 'ontoolchange' in mc) {
+        mc.addEventListener('toolchange', listTools);
+      } else if (testing && typeof testing.addEventListener === 'function') {
+        testing.addEventListener('toolchange', listTools);
+      }
+    }
+    elapsed += STEP_MS;
+    if (!armed) {
+      if (elapsed >= CAP_MS) clearInterval(timer);
+      return;
+    }
+    listTools()
+      .then((n) => { if (n > 0) clearInterval(timer); })
+      .catch(() => {});
+    if (elapsed >= CAP_MS) clearInterval(timer);
+  }, STEP_MS);
+})();
+
 // `reason === 'ready'` marks this push as the webmcp:ready-driven, settled
 // snapshot (EXPERIMENTAL — see onWebmcpReady). The standard toolchange handler
 // passes an Event here, which is !== 'ready', so those refreshes stay untagged.
 async function listTools(reason) {
+  // Resolve the API per-call rather than trusting the document_start capture
+  // above: the flag-gated API can appear after this script is injected, so a
+  // value captured at load may be stale/undefined.
+  const mc = document.modelContext || navigator.modelContext;
   let tools = [];
-  if ('getTools' in modelContext) {
-    for (const tool of await modelContext.getTools()) {
+  if (mc && 'getTools' in mc) {
+    for (const tool of await mc.getTools()) {
       let location;
       try {
         location = tool.window.location.href;
@@ -127,11 +169,12 @@ async function listTools(reason) {
         location,
       });
     }
-  } else {
+  } else if (navigator.modelContextTesting) {
     tools = navigator.modelContextTesting.listTools();
   }
   console.debug(`[WebMCP] Got ${tools.length} tools`, tools);
   chrome.runtime.sendMessage({ tools, url: window.location.href, ready: reason === 'ready' });
+  return tools.length;
 }
 
 function getLocation(crossOriginIframeWindow) {
