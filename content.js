@@ -5,7 +5,10 @@
 
 console.debug(`[WebMCP] Content script injected in ${window.location.href}`);
 
-const modelContext = document.modelContext || navigator.modelContext;
+// Resolve the WebMCP API per call rather than capturing it once here: the
+// flag-gated object can appear after this content script is injected at
+// document_start, so a value captured at load may be stale/undefined.
+const getModelContext = () => document.modelContext || navigator.modelContext;
 
 // ─── EXPERIMENTAL / WIP — specialized to webmcp-public-sites ─────────────────
 // `webmcp:ready` is NOT part of the WebMCP standard. It is a project-specific
@@ -46,8 +49,9 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
       // messages don't stack duplicate listeners. Added before the early return
       // below so it is armed on both the `ontoolchange` and testing-API paths.
       window.addEventListener('webmcp:ready', onWebmcpReady);
-      if ('ontoolchange' in modelContext) {
-        modelContext.addEventListener('toolchange', listTools);
+      const mc = getModelContext();
+      if (mc && 'ontoolchange' in mc) {
+        mc.addEventListener('toolchange', listTools);
         return;
       }
       navigator.modelContextTesting.addEventListener('toolchange', listTools);
@@ -66,10 +70,11 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
       }
       // Execute the experimental tool
       let promise;
-      if ('executeTool' in modelContext) {
-        promise = modelContext.getTools().then((tools) => {
+      const mc = getModelContext();
+      if (mc && 'executeTool' in mc) {
+        promise = mc.getTools().then((tools) => {
           const tool = tools.find((t) => t.name === name && t.window === window);
-          return modelContext.executeTool(tool, inputArgs);
+          return mc.executeTool(tool, inputArgs);
         });
       } else {
         promise = navigator.modelContextTesting.executeTool(name, inputArgs);
@@ -105,13 +110,34 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
   }
 });
 
+// Arm the settled-signal listener at load, before the page can fire it. The page
+// dispatches a `webmcp:ready` window CustomEvent after its tools settle on each
+// route. Previously this listener was armed only inside the LIST_TOOLS handler,
+// which on a fresh navigation arrives after the page already fired ready, so the
+// settled set was missed and the panel sat empty until a later LIST_TOOLS
+// (measured ~1s+ late). The content script runs at document_start, before the
+// page's own scripts register tools, so arming here catches that first ready.
+// `onWebmcpReady` is the same stable reference the LIST_TOOLS path adds, so this
+// does not double-register. Top frame only: a subframe report would clobber the
+// badge (background.js keys it off any frame) and the panel.
+//
+// Late injection - the script loaded after ready already fired (e.g. the
+// extension was reloaded on an already-open tab) - still surfaces via the next
+// LIST_TOOLS, as before; a proactive re-enumeration there can't tell a settled
+// set from a mid-registration partial one, so it is intentionally not attempted.
+if (window.top === window) {
+  window.addEventListener('webmcp:ready', onWebmcpReady);
+}
+
 // `reason === 'ready'` marks this push as the webmcp:ready-driven, settled
 // snapshot (EXPERIMENTAL — see onWebmcpReady). The standard toolchange handler
 // passes an Event here, which is !== 'ready', so those refreshes stay untagged.
 async function listTools(reason) {
+  const mc = getModelContext();
+  const testing = navigator.modelContextTesting;
   let tools = [];
-  if ('getTools' in modelContext) {
-    for (const tool of await modelContext.getTools()) {
+  if (mc && 'getTools' in mc) {
+    for (const tool of await mc.getTools()) {
       let location;
       try {
         location = tool.window.location.href;
@@ -127,8 +153,13 @@ async function listTools(reason) {
         location,
       });
     }
+  } else if (testing && typeof testing.listTools === 'function') {
+    tools = testing.listTools();
   } else {
-    tools = navigator.modelContextTesting.listTools();
+    // No enumeration API available (e.g. the webmcp:ready listener fired but the
+    // testing flag is off). Don't broadcast a misleading empty, settled-looking
+    // set, which sidebar.js would otherwise consume to resolve a pending wait.
+    return;
   }
   console.debug(`[WebMCP] Got ${tools.length} tools`, tools);
   chrome.runtime.sendMessage({ tools, url: window.location.href, ready: reason === 'ready' });
