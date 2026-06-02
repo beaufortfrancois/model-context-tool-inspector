@@ -122,10 +122,30 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
   // would clobber the top frame's badge and the panel. Subframes stay silent.
   if (window.top !== window) return;
 
-  let armed = false;
+  // Arm the settled-signal listener immediately. webmcp:ready is a one-shot
+  // window event; adding the listener is safe before the WebMCP API exists, and
+  // doing it now (rather than inside the poll below) means a ready firing within
+  // the first poll interval, or after the discovery window closes, is not missed.
+  window.addEventListener('webmcp:ready', onWebmcpReady);
+
+  let toolchangeArmed = false;
   let elapsed = 0;
   const STEP_MS = 150;
   const CAP_MS = 4000;
+
+  // Arm the standard toolchange listener once the API object exists.
+  const armToolchange = () => {
+    if (toolchangeArmed) return;
+    const mc = document.modelContext || navigator.modelContext;
+    const testing = navigator.modelContextTesting;
+    if (mc && 'ontoolchange' in mc) {
+      mc.addEventListener('toolchange', listTools);
+      toolchangeArmed = true;
+    } else if (testing && typeof testing.addEventListener === 'function') {
+      testing.addEventListener('toolchange', listTools);
+      toolchangeArmed = true;
+    }
+  };
 
   // Count tools WITHOUT broadcasting. Calling listTools() on every poll tick
   // would push an empty list repeatedly: that blanks the panel and, mid agent
@@ -140,32 +160,21 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
     return 0;
   };
 
-  const timer = setInterval(async () => {
+  // Recursive setTimeout, not setInterval: a slow getTools() can take longer
+  // than STEP_MS, and overlapping ticks would emit duplicate broadcasts. This
+  // schedules the next tick only after the current one finishes.
+  const tick = async () => {
+    armToolchange();
+    let n = 0;
+    try { n = await countTools(); } catch { n = 0; }
+    if (n > 0) {
+      listTools(); // tools are present now: broadcast them once, then stop
+      return;
+    }
     elapsed += STEP_MS;
-    const mc = document.modelContext || navigator.modelContext;
-    const testing = navigator.modelContextTesting;
-    if ((mc || testing) && !armed) {
-      armed = true;
-      // Arm the settled-signal + toolchange listeners now so later route
-      // changes still refresh the panel after this discovery loop has stopped.
-      window.addEventListener('webmcp:ready', onWebmcpReady);
-      if (mc && 'ontoolchange' in mc) {
-        mc.addEventListener('toolchange', listTools);
-      } else if (testing && typeof testing.addEventListener === 'function') {
-        testing.addEventListener('toolchange', listTools);
-      }
-    }
-    if (armed) {
-      let n = 0;
-      try { n = await countTools(); } catch { n = 0; }
-      if (n > 0) {
-        clearInterval(timer);
-        listTools(); // tools are present now: broadcast them once
-        return;
-      }
-    }
-    if (elapsed >= CAP_MS) clearInterval(timer);
-  }, STEP_MS);
+    if (elapsed < CAP_MS) setTimeout(tick, STEP_MS);
+  };
+  setTimeout(tick, STEP_MS);
 })();
 
 // `reason === 'ready'` marks this push as the webmcp:ready-driven, settled
