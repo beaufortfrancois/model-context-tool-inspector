@@ -115,15 +115,39 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
 // soon as the WebMCP API exists, retrying briefly until tools appear. Listener
 // refs are stable, so this never double-registers with the LIST_TOOLS path.
 (function discoverToolsOnLoad() {
+  // Top frame only. The content script is injected in every frame, but tool
+  // enumeration is broadcast from the top frame alone: LIST_TOOLS is only sent
+  // to frameId 0, and background.js sets the badge from any frame's report with
+  // no frameId gate, so a subframe broadcasting its own (usually empty) list
+  // would clobber the top frame's badge and the panel. Subframes stay silent.
+  if (window.top !== window) return;
+
   let armed = false;
   let elapsed = 0;
   const STEP_MS = 150;
   const CAP_MS = 4000;
-  const timer = setInterval(() => {
+
+  // Count tools WITHOUT broadcasting. Calling listTools() on every poll tick
+  // would push an empty list repeatedly: that blanks the panel and, mid agent
+  // run, overwrites the run's tool snapshot and trips the post-navigation
+  // settle early (sidebar.js consumes any report). So poll a bare count and
+  // only listTools() (which broadcasts) once tools have actually appeared.
+  const countTools = async () => {
+    const mc = document.modelContext || navigator.modelContext;
+    if (mc && 'getTools' in mc) return (await mc.getTools()).length;
+    const testing = navigator.modelContextTesting;
+    if (testing && typeof testing.listTools === 'function') return testing.listTools().length;
+    return 0;
+  };
+
+  const timer = setInterval(async () => {
+    elapsed += STEP_MS;
     const mc = document.modelContext || navigator.modelContext;
     const testing = navigator.modelContextTesting;
     if ((mc || testing) && !armed) {
       armed = true;
+      // Arm the settled-signal + toolchange listeners now so later route
+      // changes still refresh the panel after this discovery loop has stopped.
       window.addEventListener('webmcp:ready', onWebmcpReady);
       if (mc && 'ontoolchange' in mc) {
         mc.addEventListener('toolchange', listTools);
@@ -131,14 +155,15 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
         testing.addEventListener('toolchange', listTools);
       }
     }
-    elapsed += STEP_MS;
-    if (!armed) {
-      if (elapsed >= CAP_MS) clearInterval(timer);
-      return;
+    if (armed) {
+      let n = 0;
+      try { n = await countTools(); } catch { n = 0; }
+      if (n > 0) {
+        clearInterval(timer);
+        listTools(); // tools are present now: broadcast them once
+        return;
+      }
     }
-    listTools()
-      .then((n) => { if (n > 0) clearInterval(timer); })
-      .catch(() => {});
     if (elapsed >= CAP_MS) clearInterval(timer);
   }, STEP_MS);
 })();
