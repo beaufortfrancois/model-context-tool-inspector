@@ -105,83 +105,24 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
   }
 });
 
-// Surface tools without waiting for a LIST_TOOLS message. On full-document
-// navigations (e.g. zhihu) the page registers tools and fires its one-shot
-// `webmcp:ready` at ~1s. Previously the `webmcp:ready` / `toolchange` listeners
-// were armed only inside the LIST_TOOLS handler, which often ran later - or the
-// content script was injected after `ready` already fired - so the settled
-// signal was missed and the panel sat empty until a LIST_TOOLS happened to
-// arrive (measured ~1s+ late). Arm the listeners and enumerate proactively as
-// soon as the WebMCP API exists, retrying briefly until tools appear. Listener
-// refs are stable, so this never double-registers with the LIST_TOOLS path.
-(function discoverToolsOnLoad() {
-  // Top frame only. The content script is injected in every frame, but tool
-  // enumeration is broadcast from the top frame alone: LIST_TOOLS is only sent
-  // to frameId 0, and background.js sets the badge from any frame's report with
-  // no frameId gate, so a subframe broadcasting its own (usually empty) list
-  // would clobber the top frame's badge and the panel. Subframes stay silent.
-  if (window.top !== window) return;
-
-  // Arm the settled-signal listener immediately. webmcp:ready is a window
-  // CustomEvent the page (re)fires on every kind transition; adding the listener
-  // is safe before the WebMCP API exists, and arming it now (rather than inside
-  // the poll below) means a ready firing within the first poll interval, or after
-  // the discovery window closes, is not missed. On instrumented pages this is
-  // what surfaces the tools; the poll below is only a fallback for a late content
-  // script injection where a ready already fired before we could listen.
+// Arm the settled-signal listener at load, before the page can fire it. The page
+// dispatches a `webmcp:ready` window CustomEvent after its tools settle on each
+// route. Previously this listener was armed only inside the LIST_TOOLS handler,
+// which on a fresh navigation arrives after the page already fired ready, so the
+// settled set was missed and the panel sat empty until a later LIST_TOOLS
+// (measured ~1s+ late). The content script runs at document_start, before the
+// page's own scripts register tools, so arming here catches that first ready.
+// `onWebmcpReady` is the same stable reference the LIST_TOOLS path adds, so this
+// does not double-register. Top frame only: a subframe report would clobber the
+// badge (background.js keys it off any frame) and the panel.
+//
+// Late injection - the script loaded after ready already fired (e.g. the
+// extension was reloaded on an already-open tab) - still surfaces via the next
+// LIST_TOOLS, as before; a proactive re-enumeration there can't tell a settled
+// set from a mid-registration partial one, so it is intentionally not attempted.
+if (window.top === window) {
   window.addEventListener('webmcp:ready', onWebmcpReady);
-  let readySurfaced = false;
-  window.addEventListener('webmcp:ready', () => { readySurfaced = true; });
-
-  let toolchangeArmed = false;
-  let elapsed = 0;
-  const STEP_MS = 150;
-  const CAP_MS = 4000;
-
-  // Arm the standard toolchange listener once the API object exists.
-  const armToolchange = () => {
-    if (toolchangeArmed) return;
-    const mc = document.modelContext || navigator.modelContext;
-    const testing = navigator.modelContextTesting;
-    if (mc && 'ontoolchange' in mc) {
-      mc.addEventListener('toolchange', listTools);
-      toolchangeArmed = true;
-    } else if (testing && typeof testing.addEventListener === 'function') {
-      testing.addEventListener('toolchange', listTools);
-      toolchangeArmed = true;
-    }
-  };
-
-  // Count tools WITHOUT broadcasting. Calling listTools() on every poll tick
-  // would push an empty list repeatedly: that blanks the panel and, mid agent
-  // run, overwrites the run's tool snapshot and trips the post-navigation
-  // settle early (sidebar.js consumes any report). So poll a bare count and
-  // only listTools() (which broadcasts) once tools have actually appeared.
-  const countTools = async () => {
-    const mc = document.modelContext || navigator.modelContext;
-    if (mc && 'getTools' in mc) return (await mc.getTools()).length;
-    const testing = navigator.modelContextTesting;
-    if (testing && typeof testing.listTools === 'function') return testing.listTools().length;
-    return 0;
-  };
-
-  // Recursive setTimeout, not setInterval: a slow getTools() can take longer
-  // than STEP_MS, and overlapping ticks would emit duplicate broadcasts. This
-  // schedules the next tick only after the current one finishes.
-  const tick = async () => {
-    if (readySurfaced) return; // ready already delivered the settled set; defer to it
-    armToolchange();
-    let n = 0;
-    try { n = await countTools(); } catch { n = 0; }
-    if (n > 0) {
-      listTools(); // late-injection fallback: ready was missed, surface tools now
-      return;
-    }
-    elapsed += STEP_MS;
-    if (elapsed < CAP_MS) setTimeout(tick, STEP_MS);
-  };
-  setTimeout(tick, STEP_MS);
-})();
+}
 
 // `reason === 'ready'` marks this push as the webmcp:ready-driven, settled
 // snapshot (EXPERIMENTAL — see onWebmcpReady). The standard toolchange handler
@@ -214,7 +155,6 @@ async function listTools(reason) {
   }
   console.debug(`[WebMCP] Got ${tools.length} tools`, tools);
   chrome.runtime.sendMessage({ tools, url: window.location.href, ready: reason === 'ready' });
-  return tools.length;
 }
 
 function getLocation(crossOriginIframeWindow) {
