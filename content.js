@@ -122,3 +122,11 @@ window.addEventListener('toolactivated', ({ toolName }) => {
 window.addEventListener('toolcancel', ({ toolName }) => {
   console.debug(`[WebMCP] Tool "${toolName}" execution is cancelled.`);
 });
+
+// Experimental!
+if ('ontoolprogress' in navigator.modelContext) {
+  navigator.modelContext.addEventListener('toolprogress', ({ executionId, toolName, message }) => {
+    console.log({ executionId, toolName, message });
+    chrome.runtime.sendMessage({ toolprogress: { toolName, message } }).catch(() => {});
+  });
+}

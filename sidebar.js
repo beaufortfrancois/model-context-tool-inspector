@@ -42,8 +42,9 @@ let userPromptPendingId = 0;
 let lastSuggestedUserPrompt = '';
 
 // Listen for the results coming back from content.js
-chrome.runtime.onMessage.addListener(async ({ message, tools, url }, sender) => {
+chrome.runtime.onMessage.addListener(async ({ message, tools, url, toolprogress }, sender) => {
   if (sender.frameId && sender.frameId !== 0) return;
+  if (toolprogress) return;
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (sender.tab && sender.tab.id !== tab.id) return;
@@ -262,7 +263,7 @@ async function promptAI() {
         const inputArgs = JSON.stringify(args);
         logPrompt(`AI calling tool "${name}" with ${inputArgs}`);
         try {
-          const result = await executeTool(tab.id, name, inputArgs, location);
+          const result = await executeTool(tab.id, name, inputArgs, location, logPrompt);
           toolResponses.push({ functionResponse: { name: toolName, response: { result } } });
           logPrompt(`Tool "${name}" result: ${result}`);
         } catch (e) {
@@ -312,13 +313,27 @@ executeBtn.onclick = async () => {
   const name = toolNames.selectedOptions[0].value;
   const inputArgs = inputArgsText.value;
   const location = toolNames.selectedOptions[0].dataset.location;
-  toolResults.textContent = await executeTool(tab.id, name, inputArgs, location).catch(
-    (error) => `⚠️ Error: "${error}"`,
-  );
+  const progressCallback = (message) => {
+    toolResults.textContent = `${message}\n`;
+  };
+  toolResults.textContent = await executeTool(
+    tab.id,
+    name,
+    inputArgs,
+    location,
+    progressCallback,
+  ).catch((error) => `⚠️ Error: "${error}"`);
 };
 
-async function executeTool(tabId, name, inputArgs, location) {
+async function executeTool(tabId, name, inputArgs, location, progressCallback) {
+  const progressListener = ({ toolprogress }) => {
+    if (!toolprogress || toolprogress.toolName !== name) return;
+    progressCallback(toolprogress.message);
+  };
   try {
+    if (progressCallback) {
+      chrome.runtime.onMessage.addListener(progressListener);
+    }
     const result = await chrome.tabs.sendMessage(tabId, {
       action: 'EXECUTE_TOOL',
       name,
@@ -328,6 +343,10 @@ async function executeTool(tabId, name, inputArgs, location) {
     if (result !== null) return result;
   } catch (error) {
     if (!error.message.includes('message channel is closed')) throw error;
+  } finally {
+    if (progressCallback) {
+      chrome.runtime.onMessage.removeListener(progressListener);
+    }
   }
   // A navigation was triggered. The result will be on the next document.
   // TODO: Handle case where a new tab is opened.
