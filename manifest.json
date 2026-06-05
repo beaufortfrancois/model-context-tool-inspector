@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "WebMCP - Model Context Tool Inspector",
   "description": "Inspect, monitor, and execute WebMCP tools manually or with Gemini",
-  "version": "1.9.8",
+  "version": "1.9.9",
   "minimum_chrome_version": "148.0.7778.56",
   "permissions": ["sidePanel", "activeTab", "scripting", "webNavigation"],
   "host_permissions": ["<all_urls>"],
