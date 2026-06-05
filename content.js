@@ -7,15 +7,16 @@ console.debug(`[WebMCP] Content script injected in ${window.location.href}`);
 
 const modelContext = document.modelContext || navigator.modelContext;
 
-chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, reply) => {
+chrome.runtime.onMessage.addListener((message, _, reply) => {
+  const { action, name, inputArgs, location, fromOrigins } = message;
   try {
     if (!navigator.modelContextTesting && !modelContext) {
       throw new Error('Error: You must run Chrome with the "WebMCP for testing" flag enabled.');
     }
     if (action == 'LIST_TOOLS') {
-      listTools();
+      listTools(fromOrigins);
       if ('ontoolchange' in modelContext) {
-        modelContext.addEventListener('toolchange', listTools);
+        modelContext.addEventListener('toolchange', listTools.bind(null, fromOrigins));
         return;
       }
       navigator.modelContextTesting.addEventListener('toolchange', listTools);
@@ -68,10 +69,10 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
   }
 });
 
-async function listTools() {
+async function listTools(fromOrigins) {
   let tools = [];
   if ('getTools' in modelContext) {
-    for (const tool of await modelContext.getTools()) {
+    for (const tool of await modelContext.getTools({ fromOrigins })) {
       let location;
       try {
         location = tool.window.location.href;
