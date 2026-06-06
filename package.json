@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "postinstall": "npx esbuild ./node_modules/@google/genai/dist/web/index.mjs --bundle --format=esm --outfile=js-genai.js && rm -rf node_modules"
+    "postinstall": "npx esbuild ./node_modules/@google/genai/dist/web/index.mjs --bundle --format=esm --outfile=js-genai.js && node -e \"require('fs').rmSync('node_modules', { recursive: true, force: true })\""
   },
   "dependencies": {
     "@google/genai": "^1.38.0"
