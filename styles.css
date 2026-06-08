@@ -415,6 +415,11 @@ dialog::backdrop {
     color: #f87171; /* Lighter red for readability on dark */
   }
 
+  .icon-btn {
+    color: #d4d4d4;
+    font-weight: bold;
+  }
+
   .icon-btn:hover,
   .icon-btn:focus-visible {
     background-color: #262626;
