@@ -4,6 +4,7 @@
  */
 
 import { ArkAI } from './ark.js';
+import { DeepSeekAI } from './deepseek.js';
 
 // The Gemini SDK is bundled by `npm install` (postinstall esbuild step) into
 // js-genai.js, which is gitignored. Load it lazily so the rest of the sidebar -
@@ -76,7 +77,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, ready }, send
     activeRun.tools = tools;
     // Wake a turn waiting for the destination page to report its tools after a
     // navigation (see the post-tool-call wait in promptAI). `ready` is true only
-    // for the EXPERIMENTAL webmcp:ready-driven push (see content.js) — the
+    // for the EXPERIMENTAL webmcp:ready-driven push (see content.js) - the
     // settled, full-tool-set snapshot; toolchange-driven pushes pass it falsy.
     activeRun.onToolsUpdate?.(ready);
   }
@@ -199,8 +200,14 @@ function isArk() {
   return localStorage.provider === 'ark';
 }
 
+function isDeepSeek() {
+  return localStorage.provider === 'deepseek';
+}
+
 function currentModel() {
-  return isArk() ? localStorage.arkModel : localStorage.model;
+  if (isArk()) return localStorage.arkModel;
+  if (isDeepSeek()) return localStorage.deepseekModel;
+  return localStorage.model;
 }
 
 // Built-in (page-independent) tools are opt-in per tool. The enabled set is a
@@ -265,6 +272,12 @@ async function initProvider() {
   localStorage.arkModel ??= env?.arkModel || 'doubao-seed-2-0-lite-260428';
   localStorage.arkThinking ??= env?.arkThinking || 'disabled';
 
+  // DeepSeek key + model + thinking config.
+  if (env?.deepseekApiKey) localStorage.deepseekApiKey ??= env.deepseekApiKey;
+  if (env?.deepseekBaseUrl) localStorage.deepseekBaseUrl ??= env.deepseekBaseUrl;
+  localStorage.deepseekModel ??= env?.deepseekModel || 'deepseek-v4-flash';
+  localStorage.deepseekThinking ??= env?.deepseekThinking || 'disabled';
+
   await refreshClient();
   updateApiKeyField();
   syncAdvancedUI();
@@ -278,6 +291,14 @@ async function refreshClient() {
           apiKey: localStorage.arkApiKey,
           baseURL: localStorage.arkBaseUrl,
           thinkingMode: localStorage.arkThinking,
+        })
+      : undefined;
+  } else if (isDeepSeek()) {
+    genAI = localStorage.deepseekApiKey
+      ? new DeepSeekAI({
+          apiKey: localStorage.deepseekApiKey,
+          baseURL: localStorage.deepseekBaseUrl,
+          thinkingMode: localStorage.deepseekThinking,
         })
       : undefined;
   } else if (localStorage.apiKey) {
@@ -298,8 +319,16 @@ async function refreshClient() {
 }
 
 function updateApiKeyField() {
-  apiKeyInput.placeholder = isArk() ? 'ARK API key' : 'Gemini API key';
-  apiKeyInput.value = (isArk() ? localStorage.arkApiKey : localStorage.apiKey) || '';
+  if (isArk()) {
+    apiKeyInput.placeholder = 'ARK API key';
+    apiKeyInput.value = localStorage.arkApiKey || '';
+  } else if (isDeepSeek()) {
+    apiKeyInput.placeholder = 'DeepSeek API key';
+    apiKeyInput.value = localStorage.deepseekApiKey || '';
+  } else {
+    apiKeyInput.placeholder = 'Gemini API key';
+    apiKeyInput.value = localStorage.apiKey || '';
+  }
 }
 
 // Restore stored selections into the radios. Which group is visible is handled
@@ -315,6 +344,8 @@ function syncAdvancedUI() {
   setRadio('geminiModel', localStorage.model);
   setRadio('arkModel', localStorage.arkModel);
   setRadio('arkThinking', localStorage.arkThinking);
+  setRadio('deepseekModel', localStorage.deepseekModel);
+  setRadio('deepseekThinking', localStorage.deepseekThinking);
 }
 
 await initProvider();
@@ -345,6 +376,21 @@ document.querySelectorAll('input[name="arkModel"]').forEach((radio) => {
 document.querySelectorAll('input[name="arkThinking"]').forEach((radio) => {
   radio.onclick = async () => {
     localStorage.arkThinking = radio.value;
+    await initProvider();
+  };
+});
+
+document.querySelectorAll('input[name="deepseekModel"]').forEach((radio) => {
+  radio.onclick = () => {
+    localStorage.deepseekModel = radio.value;
+    chat = undefined;
+    advancedSection.hidePopover();
+  };
+});
+
+document.querySelectorAll('input[name="deepseekThinking"]').forEach((radio) => {
+  radio.onclick = async () => {
+    localStorage.deepseekThinking = radio.value;
     await initProvider();
   };
 });
@@ -520,6 +566,7 @@ resetBtn.onclick = () => {
 apiKeyInput.oninput = async () => {
   const apiKey = apiKeyInput.value.trim();
   if (isArk()) localStorage.arkApiKey = apiKey;
+  else if (isDeepSeek()) localStorage.deepseekApiKey = apiKey;
   else localStorage.apiKey = apiKey;
   await refreshClient();
 };
@@ -854,7 +901,7 @@ function waitForPageLoad(tabId) {
   });
 }
 
-// EXPERIMENTAL / WIP — specialized to webmcp-public-sites; revisit later.
+// EXPERIMENTAL / WIP - specialized to webmcp-public-sites; revisit later.
 //
 // Resolves when the bound run's destination page has settled its WebMCP tools
 // after a navigation, so the next model turn sees the new page's tools and not
@@ -864,7 +911,7 @@ function waitForPageLoad(tabId) {
 // Resolution preference, by trustworthiness of the trigger:
 //  1. A `ready`-tagged push (the project-specific `webmcp:ready` signal relayed
 //     by content.js) means injection for the new route has finished and the full
-//     tool set is enumerable — resolve immediately on it. This is the whole point
+//     tool set is enumerable - resolve immediately on it. This is the whole point
 //     of consuming the signal: deterministic instead of timeout-based.
 //  2. A plain toolchange-driven push may be mid-batch (a partial set). A
 //     `webmcp:ready` often follows within a few ms, so we give it a short grace

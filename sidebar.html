@@ -54,6 +54,10 @@
           <input type="radio" name="provider" value="ark" checked>
           <span>ARK (Doubao)</span>
         </label>
+        <label class="model-option">
+          <input type="radio" name="provider" value="deepseek">
+          <span>DeepSeek</span>
+        </label>
 
         <div id="geminiGroup">
           <div class="menu-label">Gemini Model</div>
@@ -114,6 +118,28 @@
           <label class="model-option">
             <input type="radio" name="arkThinking" value="auto">
             <span>Auto</span>
+          </label>
+        </div>
+
+        <div id="deepseekGroup">
+          <div class="menu-label">DeepSeek Model</div>
+          <label class="model-option">
+            <input type="radio" name="deepseekModel" value="deepseek-v4-flash" checked>
+            <span>DeepSeek V4 Flash</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="deepseekModel" value="deepseek-v4-pro">
+            <span>DeepSeek V4 Pro</span>
+          </label>
+
+          <div class="menu-label">Thinking</div>
+          <label class="model-option">
+            <input type="radio" name="deepseekThinking" value="disabled" checked>
+            <span>Off (faster)</span>
+          </label>
+          <label class="model-option">
+            <input type="radio" name="deepseekThinking" value="enabled">
+            <span>On</span>
           </label>
         </div>
 
