@@ -6,16 +6,16 @@
 console.debug(`[WebMCP] Content script injected in ${window.location.href}`);
 
 // Resolve the WebMCP API per call rather than capturing it once here: the
-// flag-gated object can appear after this content script is injected at
-// document_start, so a value captured at load may be stale/undefined.
+// browser object can appear after this content script is injected at
+// document_start, so a value captured at load may be stale or undefined.
 const getModelContext = () => document.modelContext || navigator.modelContext;
 
-// ─── EXPERIMENTAL / WIP — specialized to webmcp-public-sites ─────────────────
+// EXPERIMENTAL / WIP - specialized to webmcp-public-sites.
 // `webmcp:ready` is NOT part of the WebMCP standard. It is a project-specific
 // convention emitted by our own page partials (webmcp-public-sites,
 // sites/*/src/webmcp-shared.js) from a `finally` clause after each route's tools
 // finish (re)registering. It means: "tool injection for this page kind has
-// settled — the full tool set is now enumerable."
+// settled - the full tool set is now enumerable."
 //
 // We consume it to get ONE authoritative refresh per transition, instead of
 // reacting only to the standard per-tool `toolchange` event (which fires
@@ -23,9 +23,9 @@ const getModelContext = () => document.modelContext || navigator.modelContext;
 // re-enumerate via listTools('ready'); we deliberately do NOT read
 // event.detail.{kind,tools}, because that detail object is authored in the
 // page's MAIN world and is not reliably readable from this isolated-world
-// content script — we trust the event only as a "settled" trigger.
+// content script - we trust the event only as a "settled" trigger.
 //
-// CAVEATS — REVISIT LATER (this is a prototype, not a finished design):
+// CAVEATS - REVISIT LATER (this is a prototype, not a finished design):
 //  - Pages NOT instrumented by webmcp-public-sites never fire this, so the agent
 //    loop falls back to timeout-based waiting for them (see sidebar.js
 //    waitForToolsUpdate). This couples the otherwise-generic inspector to our
@@ -38,8 +38,9 @@ const onWebmcpReady = () => listTools('ready');
 
 chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, reply) => {
   try {
-    if (!navigator.modelContextTesting) {
-      throw new Error('Error: You must run Chrome with the "WebMCP for testing" flag enabled.');
+    const legacy = navigator.modelContextTesting;
+    if (!getModelContext() && !legacy) {
+      throw new Error('Error: You must run Chrome with WebMCP enabled.');
     }
     if (action == 'LIST_TOOLS') {
       listTools();
@@ -47,14 +48,14 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
       // (see onWebmcpReady above) next to the standard `toolchange` wiring.
       // Idempotent: onWebmcpReady is a stable reference, so repeated LIST_TOOLS
       // messages don't stack duplicate listeners. Added before the early return
-      // below so it is armed on both the `ontoolchange` and testing-API paths.
+      // below so it is armed on both the `ontoolchange` and legacy API paths.
       window.addEventListener('webmcp:ready', onWebmcpReady);
       const mc = getModelContext();
       if (mc && 'ontoolchange' in mc) {
         mc.addEventListener('toolchange', listTools);
         return;
       }
-      navigator.modelContextTesting.addEventListener('toolchange', listTools);
+      legacy?.addEventListener?.('toolchange', listTools);
     }
     if (action == 'EXECUTE_TOOL') {
       if (location && location !== window.location.href) return;
@@ -68,7 +69,7 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
           targetFrame.addEventListener('load', resolve, { once: true });
         });
       }
-      // Execute the experimental tool
+      // Execute the WebMCP tool.
       let promise;
       const mc = getModelContext();
       if (mc && 'executeTool' in mc) {
@@ -76,8 +77,10 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
           const tool = tools.find((t) => t.name === name && t.window === window);
           return mc.executeTool(tool, inputArgs);
         });
+      } else if (legacy?.executeTool) {
+        promise = legacy.executeTool(name, inputArgs);
       } else {
-        promise = navigator.modelContextTesting.executeTool(name, inputArgs);
+        throw new Error('WebMCP executeTool API not available.');
       }
       promise
         .then(async (result) => {
@@ -101,7 +104,7 @@ chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, 
       reply(document.querySelector('script[type="application/ld+json"]')?.textContent);
     }
   } catch ({ message }) {
-    // A synchronous throw here (e.g. the testing-flag check, which runs before
+    // A synchronous throw here (e.g. the WebMCP check, which runs before
     // EXECUTE_TOOL reaches its async reply) would otherwise leave the caller's
     // sendMessage resolving to undefined - surfacing as an empty/garbled tool
     // result instead of the actual error. Reply with it as well as broadcasting.
@@ -130,7 +133,7 @@ if (window.top === window) {
 }
 
 // `reason === 'ready'` marks this push as the webmcp:ready-driven, settled
-// snapshot (EXPERIMENTAL — see onWebmcpReady). The standard toolchange handler
+// snapshot (EXPERIMENTAL - see onWebmcpReady). The standard toolchange handler
 // passes an Event here, which is !== 'ready', so those refreshes stay untagged.
 async function listTools(reason) {
   const mc = getModelContext();

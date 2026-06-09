@@ -1,10 +1,10 @@
 # WebMCP - Model Context Tool Inspector
 
-A Chrome Extension that allows developers to inspect, monitor, and execute tools exposed via the experimental `navigator.modelContextTesting` Web API.
+A Chrome Extension that allows developers to inspect, monitor, and execute tools exposed via the WebMCP API.
 
 ## Prerequisites
 
-**Important:** This extension relies on the experimental `navigator.modelContextTesting` Web API. You must enable the "WebMCP for testing" flag in `chrome://flags` to turn it on in Chrome 148.0.7778.56 or higher.
+**Important:** This extension relies on the WebMCP browser API. Enable `chrome://flags/#enable-web-mcp` and relaunch Chrome before using it.
 
 ## Installation
 
@@ -51,9 +51,9 @@ Install the extension directly via the [Chrome Web Store](https://chromewebstore
 
 ## Choosing a model provider
 
-The "Interact with the Page" section can drive tools with either Gemini or
-Volcano Engine ARK (Doubao). Open the advanced menu (the `⋮` button next to the
-prompt) to pick a provider, model, and (for ARK) a thinking mode.
+The "Interact with the Page" section can drive tools with Gemini, Volcano
+Engine ARK (Doubao), or DeepSeek. Open the advanced menu (the `⋮` button next
+to the prompt) to pick a provider, model, and thinking mode where supported.
 
 * **Gemini:** set a [Gemini API key](https://aistudio.google.com/apikey) via
   the **Set Gemini API key** button.
@@ -66,6 +66,13 @@ prompt) to pick a provider, model, and (for ARK) a thinking mode.
     reasoning budget roughly triples response time; turn it **On** or **Auto**
     if you want the model to reason. Models marked "no thinking" ignore the
     setting.
+* **DeepSeek:** select the DeepSeek provider, then set a
+  [DeepSeek API key](https://platform.deepseek.com). DeepSeek speaks an
+  OpenAI-compatible chat-completions endpoint (`https://api.deepseek.com` by
+  default). The built-in model choices are `deepseek-v4-flash` and
+  `deepseek-v4-pro`. The older `deepseek-chat` and `deepseek-reasoner` aliases
+  are not listed because DeepSeek has announced their July 24, 2026
+  deprecation.
 
 Keys and selections are stored in the side panel's `localStorage`. You can also
 ship defaults in an optional `.env.json` next to `sidebar.html`:
@@ -76,6 +83,9 @@ ship defaults in an optional `.env.json` next to `sidebar.html`:
   "arkApiKey": "...",
   "arkModel": "doubao-seed-2-0-pro-260215",
   "arkThinking": "disabled",
+  "deepseekApiKey": "...",
+  "deepseekModel": "deepseek-v4-flash",
+  "deepseekThinking": "disabled",
   "apiKey": "...",
   "model": "gemini-3-flash-preview"
 }

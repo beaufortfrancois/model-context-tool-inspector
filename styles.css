@@ -433,7 +433,8 @@ dialog::backdrop {
 
 /* Show only the model group for the selected provider. */
 #geminiGroup,
-#arkGroup {
+#arkGroup,
+#deepseekGroup {
   display: none;
 }
 
@@ -442,6 +443,10 @@ dialog::backdrop {
 }
 
 #advancedSection:has(input[name="provider"][value="ark"]:checked) #arkGroup {
+  display: block;
+}
+
+#advancedSection:has(input[name="provider"][value="deepseek"]:checked) #deepseekGroup {
   display: block;
 }
 
