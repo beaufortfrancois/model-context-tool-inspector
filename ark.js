@@ -47,7 +47,7 @@ function translateTools(geminiTools) {
         type: 'function',
         function: {
           name: fd.name,
-          description: fd.description || '',
+          description: openAICompatibleDescription(fd),
           parameters: fd.parametersJsonSchema ||
             fd.parameters || { type: 'object', properties: {} },
         },
@@ -55,6 +55,15 @@ function translateTools(geminiTools) {
     }
   }
   return out;
+}
+
+function openAICompatibleDescription(fd) {
+  const parts = [fd.description || ''];
+  const responseSchema = fd.responseJsonSchema || fd.response;
+  if (responseSchema) {
+    parts.push(`Return value JSON schema:\n${JSON.stringify(responseSchema, null, 2)}`);
+  }
+  return parts.filter(Boolean).join('\n\n');
 }
 
 export class ArkAI {

@@ -114,12 +114,23 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, ready }, send
 
   await loadHljs().catch(() => {});
 
-  const KEYS = ['name', 'description', 'inputSchema', 'readOnlyHint', 'untrustedContentHint'];
-  // Fixed widths for the predictable columns; inputSchema (left unset) absorbs
-  // the remaining space.
+  const KEYS = [
+    'name',
+    'title',
+    'description',
+    'inputSchema',
+    'outputSchema',
+    'annotations',
+    'readOnlyHint',
+    'untrustedContentHint',
+  ];
+  // Fixed widths for the predictable columns; schemas absorb the remaining
+  // space and the container provides horizontal scroll when needed.
   const COL_WIDTHS = {
-    name: '14%',
-    description: '28%',
+    name: '13%',
+    title: '12%',
+    description: '24%',
+    annotations: '14%',
     readOnlyHint: '9%',
     untrustedContentHint: '11%',
   };
@@ -151,7 +162,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, ready }, send
     if (new Set(tools.map((t) => t.location)).size > 1) {
       option.textContent += ` | ${item.location || ''}`;
     }
-    option.dataset.inputSchema = item.inputSchema || '{}';
+    option.dataset.inputSchema = schemaToJSONString(item.inputSchema);
     option.dataset.location = item.location || '';
     toolNames.appendChild(option);
   });
@@ -165,11 +176,17 @@ tbody.ondblclick = () => {
 copyAsScriptToolConfig.onclick = async () => {
   const text = currentTools
     .map((tool) => {
+      const outputSchema = tool.outputSchema
+        ? `\n  output_schema: ${schemaToJSONString(tool.outputSchema)}`
+        : '';
+      const annotations = tool.annotations
+        ? `\n  annotations: ${schemaToJSONString(tool.annotations, {})}`
+        : '';
       return `\
 script_tools {
   name: "${tool.name}"
   description: "${tool.description}"
-  input_schema: ${JSON.stringify(tool.inputSchema || { type: 'object', properties: {} })}
+  input_schema: ${schemaToJSONString(tool.inputSchema)}${outputSchema}${annotations}
 }`;
     })
     .join('\r\n');
@@ -180,10 +197,11 @@ copyAsJSON.onclick = async () => {
   const tools = currentTools.map((tool) => {
     return {
       name: tool.name,
+      ...(tool.title ? { title: tool.title } : {}),
       description: tool.description,
-      inputSchema: tool.inputSchema
-        ? JSON.parse(tool.inputSchema)
-        : { type: 'object', properties: {} },
+      inputSchema: parseJSONOrDefault(tool.inputSchema, { type: 'object', properties: {} }),
+      ...(tool.outputSchema ? { outputSchema: parseJSONOrDefault(tool.outputSchema, tool.outputSchema) } : {}),
+      ...(tool.annotations ? { annotations: parseJSONOrDefault(tool.annotations, tool.annotations) } : {}),
     };
   });
   await navigator.clipboard.writeText(JSON.stringify(tools, '', '  '));
@@ -410,9 +428,12 @@ suggestBtn.onclick = async () => {
     // real JSON Schema rather than a stringified blob.
     const toolSummary = currentTools.map((t) => ({
       name: t.name,
+      ...(t.title ? { title: t.title } : {}),
       description: t.description,
       readOnly: !!t.readOnlyHint,
-      inputSchema: t.inputSchema ? JSON.parse(t.inputSchema) : { type: 'object', properties: {} },
+      annotations: parseJSONOrDefault(t.annotations, {}),
+      inputSchema: parseJSONOrDefault(t.inputSchema, { type: 'object', properties: {} }),
+      ...(t.outputSchema ? { outputSchema: parseJSONOrDefault(t.outputSchema, t.outputSchema) } : {}),
     }));
     const response = await genAI.models.generateContent({
       model: currentModel(),
@@ -759,14 +780,35 @@ function getConfig(tools = currentTools) {
       const locationIndex = (tools || []).findIndex((t) => t.location === tool.location);
       return {
         name: `_${locationIndex}_${tool.name}`,
-        description: tool.description,
-        parametersJsonSchema: tool.inputSchema
-          ? JSON.parse(tool.inputSchema)
-          : { type: 'object', properties: {} },
+        description: toolDescription(tool),
+        parametersJsonSchema: parseJSONOrDefault(tool.inputSchema, { type: 'object', properties: {} }),
+        ...(tool.outputSchema ? { responseJsonSchema: parseJSONOrDefault(tool.outputSchema, tool.outputSchema) } : {}),
       };
     }),
   ];
   return { systemInstruction, tools: [{ functionDeclarations }] };
+}
+
+function parseJSONOrDefault(value, fallback) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+}
+
+function schemaToJSONString(value, fallback = { type: 'object', properties: {} }) {
+  const parsed = parseJSONOrDefault(value, fallback);
+  return JSON.stringify(parsed, null, '  ');
+}
+
+function toolDescription(tool) {
+  const parts = [tool.description || ''];
+  if (tool.title) parts.push(`Title: ${tool.title}`);
+  if (tool.annotations) parts.push(`Annotations: ${schemaToJSONString(tool.annotations, {})}`);
+  return parts.filter(Boolean).join('\n\n');
 }
 
 function generateTemplateFromSchema(schema) {

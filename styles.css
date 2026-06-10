@@ -181,6 +181,7 @@ details.log-entry > summary.log-label {
 
 table {
   width: 100%;
+  min-width: 1100px;
   border-collapse: collapse;
   font-size: 0.6875rem;
   background: white;

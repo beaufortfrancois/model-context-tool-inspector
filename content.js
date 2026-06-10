@@ -36,6 +36,16 @@ const getModelContext = () => document.modelContext || navigator.modelContext;
 // ─────────────────────────────────────────────────────────────────────────────
 const onWebmcpReady = () => listTools('ready');
 
+function serializeToolValue(value) {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
 chrome.runtime.onMessage.addListener(({ action, name, inputArgs, location }, _, reply) => {
   try {
     const legacy = navigator.modelContextTesting;
@@ -147,11 +157,15 @@ async function listTools(reason) {
       } catch {
         location = await getLocation(tool.window);
       }
+      const annotations = tool.annotations || {};
       tools.push({
         description: tool.description,
-        inputSchema: tool.inputSchema,
-        readOnlyHint: tool.annotations?.readOnlyHint ? '✓' : undefined,
-        untrustedContentHint: tool.annotations?.untrustedContentHint ? '✓' : undefined,
+        title: tool.title,
+        inputSchema: serializeToolValue(tool.inputSchema),
+        outputSchema: serializeToolValue(tool.outputSchema),
+        annotations: serializeToolValue(annotations),
+        readOnlyHint: annotations.readOnlyHint ? '✓' : undefined,
+        untrustedContentHint: annotations.untrustedContentHint ? '✓' : undefined,
         name: tool.name,
         location,
       });
