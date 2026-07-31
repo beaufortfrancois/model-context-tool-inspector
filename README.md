@@ -1,6 +1,6 @@
 # WebMCP - Model Context Tool Inspector
 
-A Chrome Extension that allows developers to inspect, monitor, and execute WebMCP tools manually or with Gemini.
+A Chrome Extension that allows developers to inspect, monitor, and execute WebMCP tools manually or with Gemini via a local backend server interface.
 
 ## Prerequisites
 
@@ -8,27 +8,37 @@ A Chrome Extension that allows developers to inspect, monitor, and execute WebMC
 
 ## Installation
 
-You can install this extension either directly from the Chrome Web Store or manually from the source code.
-
-### Option 1: Chrome Web Store (recommended)
-
-Install the extension directly via the [Chrome Web Store](https://chromewebstore.google.com/detail/model-context-tool-inspec/gbpdfapgefenggkahomfgkhfehlcenpd).
-
-### Option 2: Install from source
-
 1.  **Download the Source:**
     Clone this repository or download the source files into a directory.
 
 2.  **Install dependencies:**
     In the directory, run `npm install`.
 
-3.  **Open Chrome Extensions:**
+3.  **Configure `.env.json`**
+    Create a `.env.json` file in the root directory with your Gemini API Key:
+    ```json
+    {
+      "apiKey": "YOUR_GEMINI_API_KEY",
+      "model": "gemini-3.6-flash",
+      "serverUrl": "http://localhost:3000"
+    }
+    ```
+    *Note: `model` (defaults to `gemini-3.6-flash`) and `serverUrl` (defaults to `http://localhost:3000`) are optional.*
+
+4.  **Start the Local Backend Server**
+    Start the local backend server interface that handles communication with the Gemini API:
+    ```bash
+    npm run start:server
+    ```
+    *The server runs locally at `http://localhost:3000`.*
+
+5.  **Open Chrome Extensions:**
     Navigate to `chrome://extensions/` in your browser address bar.
 
-4.  **Enable Developer Mode:**
+6.  **Enable Developer Mode:**
     Toggle the **Developer mode** switch in the top right corner of the Extensions page.
 
-5.  **Load Unpacked:**
+7.  **Load Unpacked:**
     Click the **Load unpacked** button that appears in the top left. Select the directory containing `manifest.json` (the folder where you saved the files).
 
 ## Usage
@@ -48,6 +58,10 @@ Install the extension directly via the [Chrome Web Store](https://chromewebstore
     * **Input Arguments:** Enter the arguments for the tool in the text area.
         * *Note:* The input must be valid JSON (e.g., `{"text": "hello world"}`).
     * Click **Execute Tool**.
+
+5.  **Interact with Gemini:**
+    * Enter a prompt in the **User Prompt** field and click **Send**.
+    * The extension communicates with the local backend server (`http://localhost:3000`), which interacts with Gemini to execute tools and return responses.
 
 ## Disclaimer
 

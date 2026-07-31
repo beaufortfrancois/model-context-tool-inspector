@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GoogleGenAI } from './js-genai.js';
 import { getAllFrameOrigins } from './utils.js';
 
 const statusDiv = document.getElementById('status');
@@ -20,7 +19,6 @@ const userPromptText = document.getElementById('userPromptText');
 const promptBtn = document.getElementById('promptBtn');
 const traceBtn = document.getElementById('traceBtn');
 const resetBtn = document.getElementById('resetBtn');
-const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 const advancedSection = document.getElementById('advancedSection');
 const suggestUserPromptCheckbox = document.getElementById('suggestUserPromptCheckbox');
@@ -145,38 +143,39 @@ copyAsJSON.onclick = async () => {
 
 // Interact with the page
 
-let genAI, chat;
+const env = (await import('./.env.json', { with: { type: 'json' } })).default;
 
-const envModulePromise = import('./.env.json', { with: { type: 'json' } });
+const SERVER_URL = (env?.serverUrl || 'http://localhost:3000').replace(/\/$/, '');
 
-async function initGenAI() {
-  let env;
-  try {
-    // Try load .env.json if present.
-    env = (await envModulePromise).default;
-  } catch {}
-  if (env?.apiKey) localStorage.apiKey ??= env.apiKey;
-  if (localStorage.model === 'gemini-2.5-flash') {
-    localStorage.model = 'gemini-3-flash-preview';
-  }
-  if (localStorage.model === 'gemini-3.1-flash-lite-preview') {
-    localStorage.model = 'gemini-3.1-flash-lite';
-  }
-  localStorage.model ??= env?.model || 'gemini-3.6-flash';
-  genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
-  promptBtn.disabled = !localStorage.apiKey;
-  resetBtn.disabled = !localStorage.apiKey;
-  apiKeyBtn.textContent = localStorage.apiKey ? 'Update Gemini API key' : 'Set Gemini API key';
+let abortController;
 
-  suggestUserPromptCheckbox.checked = localStorage.suggestUserPrompt !== 'false';
+async function callBackend(endpoint, data, options = {}) {
+  const res = await fetch(`${SERVER_URL}${endpoint}`, {
+    method: data ? 'POST' : 'GET',
+    ...(data ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) } : {}),
+    signal: options.signal ?? abortController?.signal,
+    ...options,
+  });
+  const json = await res.json();
+  if (json.error) throw new Error(json.error);
+  return json;
 }
-await initGenAI();
+
+let { model } = await callBackend('/api/model');
+let chatId;
+
+promptBtn.disabled = false;
+resetBtn.disabled = false;
+suggestUserPromptCheckbox.checked = localStorage.suggestUserPrompt !== 'false';
 
 document.querySelectorAll('input[name="model"]').forEach((radio) => {
-  radio.checked = radio.value === localStorage.model;
+  radio.checked = radio.value === model;
   radio.onclick = () => {
-    localStorage.model = radio.value;
-    chat = undefined;
+    abortController?.abort();
+    abortController = new AbortController();
+    model = radio.value;
+    callBackend('/api/model', { model, chatId });
+    chatId = undefined;
     advancedSection.hidePopover();
   };
 });
@@ -189,33 +188,22 @@ suggestUserPromptCheckbox.onchange = () => {
 
 async function suggestUserPrompt() {
   if (localStorage.suggestUserPrompt === 'false') return;
-  if (currentTools.length == 0 || !genAI || userPromptText.value !== lastSuggestedUserPrompt)
+  if (currentTools.length === 0 || userPromptText.value !== lastSuggestedUserPrompt)
     return;
   const userPromptId = ++userPromptPendingId;
-  const response = await genAI.models.generateContent({
-    model: localStorage.model,
-    contents: [
-      '**Context:**',
-      `Today's date is: ${getFormattedDate()}`,
-      '**Tool Rules:**',
-      '1. **Bank Transaction Filter:** Use **PAST** dates only (e.g., "last month," "December 15th," "yesterday").',
-      '2. **Flight Search:** Use **FUTURE** dates only (e.g., "next week," "February 15th").',
-      '3. **Accommodation Search:** Use **FUTURE** dates only (e.g., "next weekend," "March 15th").',
-      '**Task:**',
-      'Generate one natural user query for a range of tools below, ideally chaining them together.',
-      'Ensure the date makes sense relative to today.',
-      'Output the query text only.',
-      '**Tools:**',
-      JSON.stringify(currentTools),
-    ],
-  });
-  if (userPromptId !== userPromptPendingId || userPromptText.value !== lastSuggestedUserPrompt)
-    return;
-  lastSuggestedUserPrompt = response.text;
-  userPromptText.value = '';
-  for (const chunk of response.text) {
-    await new Promise((r) => requestAnimationFrame(r));
-    userPromptText.value += chunk;
+  try {
+    const response = await callBackend('/api/suggest-prompt', { tools: currentTools });
+    if (userPromptId !== userPromptPendingId || userPromptText.value !== lastSuggestedUserPrompt)
+      return;
+    lastSuggestedUserPrompt = response.text;
+    userPromptText.value = '';
+    for (const chunk of response.text) {
+      await new Promise((r) => requestAnimationFrame(r));
+      userPromptText.value += chunk;
+    }
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    console.warn('Suggest prompt failed:', e);
   }
 }
 
@@ -230,6 +218,7 @@ promptBtn.onclick = async () => {
   try {
     await promptAI();
   } catch (error) {
+    if (error.name === 'AbortError') return;
     trace.push({ error });
     logPrompt(`⚠️ Error: "${error}"`);
   }
@@ -240,15 +229,21 @@ let trace = [];
 async function promptAI() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  chat ??= genAI.chats.create({ model: localStorage.model });
+  abortController?.abort();
+  abortController = new AbortController();
 
   const message = userPromptText.value;
   userPromptText.value = '';
   lastSuggestedUserPrompt = '';
   promptResults.textContent += `User prompt: "${message}"\n`;
-  const sendMessageParams = { message, config: getConfig() };
-  trace.push({ userPrompt: sendMessageParams });
-  let currentResult = await chat.sendMessage(sendMessageParams);
+  trace.push({ userPrompt: message });
+  let currentResult = await callBackend('/api/chat', {
+    message,
+    tools: currentTools,
+    chatId,
+  });
+  if (currentResult.chatId) chatId = currentResult.chatId;
+
   let finalResponseGiven = false;
 
   while (!finalResponseGiven) {
@@ -286,27 +281,22 @@ async function promptAI() {
       // An articial timeout is introduced for mitigation but it's not robust enough.
       await new Promise((r) => setTimeout(r, 500));
 
-      const sendMessageParams = { message: toolResponses, config: getConfig() };
-      trace.push({ userPrompt: sendMessageParams });
-      currentResult = await chat.sendMessage(sendMessageParams);
+      trace.push({ userPrompt: toolResponses });
+      currentResult = await callBackend('/api/chat', { toolResponses, chatId });
+      if (currentResult.chatId) chatId = currentResult.chatId;
     }
   }
 }
 
 resetBtn.onclick = () => {
-  chat = undefined;
+  abortController?.abort();
+  abortController = new AbortController();
+  callBackend('/api/reset', { chatId });
+  chatId = undefined;
   trace = [];
   userPromptText.value = '';
   lastSuggestedUserPrompt = '';
   promptResults.textContent = '';
-  suggestUserPrompt();
-};
-
-apiKeyBtn.onclick = async () => {
-  const apiKey = prompt('Enter Gemini API key', localStorage.apiKey);
-  if (apiKey == null) return;
-  localStorage.apiKey = apiKey;
-  await initGenAI();
   suggestUserPrompt();
 };
 
@@ -362,37 +352,6 @@ function logPrompt(text) {
   promptResults.scrollTop = promptResults.scrollHeight;
 }
 
-function getFormattedDate() {
-  const today = new Date();
-  return today.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
-function getConfig() {
-  const systemInstruction = [
-    'You are an assistant embedded in a browser tab.',
-    'User prompts typically refer to the current tab unless stated otherwise.',
-    'Use the provided tools to query page content when you need it.',
-    `Today's date is: ${getFormattedDate()}`,
-    'CRITICAL RULE: Whenever the user provides a relative date (e.g., "next Monday", "tomorrow", "in 3 days"),  you must calculate the exact calendar date based on today\'s date.',
-    'CRITICAL RULE: Do not try to use other tools than the available ones.',
-  ];
-
-  const functionDeclarations = currentTools.map((tool) => {
-    return {
-      name: `_${tool.frameId}_${tool.name}`,
-      description: tool.description,
-      parametersJsonSchema: tool.inputSchema
-        ? JSON.parse(tool.inputSchema)
-        : { type: 'object', properties: {} },
-    };
-  });
-  return { systemInstruction, tools: [{ functionDeclarations }] };
-}
 
 function generateTemplateFromSchema(schema) {
   if (!schema || typeof schema !== 'object') {

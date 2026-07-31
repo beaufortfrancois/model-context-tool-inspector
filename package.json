@@ -1,6 +1,8 @@
 {
+  "type": "module",
   "scripts": {
-    "postinstall": "npx esbuild ./node_modules/@google/genai/dist/web/index.mjs --bundle --format=esm --outfile=js-genai.js && rm -rf node_modules"
+    "start:server": "node server/server.js",
+    "postinstall": "npx esbuild ./node_modules/@google/genai/dist/web/index.mjs --bundle --format=esm --outfile=server/js-genai.js && rm -rf node_modules"
   },
   "dependencies": {
     "@google/genai": "^1.38.0"
