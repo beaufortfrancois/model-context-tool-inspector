@@ -282,7 +282,7 @@ async function promptAI() {
       await new Promise((r) => setTimeout(r, 500));
 
       trace.push({ userPrompt: toolResponses });
-      currentResult = await callBackend('/api/chat', { toolResponses, chatId });
+      currentResult = await callBackend('/api/chat', { toolResponses, chatId, tools: currentTools });
       if (currentResult.chatId) chatId = currentResult.chatId;
     }
   }
