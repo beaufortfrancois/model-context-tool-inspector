@@ -1,2 +1,2 @@
 .env.json
-js-genai.js
+server/js-genai.js
