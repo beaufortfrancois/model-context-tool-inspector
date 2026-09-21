@@ -87,9 +87,9 @@ async function listTools(fromOrigins) {
     tools.push({
       description: tool.description,
       inputSchema,
-      readOnlyHint: tool.annotations?.readOnlyHint ? '✓' : undefined,
-      untrustedContentHint: tool.annotations?.untrustedContentHint ? '✓' : undefined,
-      consequentialHint: tool.annotations?.consequentialHint ? '✓' : undefined,
+      annotations: Object.keys(tool.annotations || {})
+        .filter((k) => tool.annotations[k])
+        .join(', '),
       name: tool.name,
       frameId,
     });
