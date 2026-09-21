@@ -20,7 +20,7 @@
       "matches": ["<all_urls>"],
       "all_frames": true,
       "match_about_blank": true,
-      "runAt": "document_start",
+      "run_at": "document_start",
       "js": ["content.js"]
     }
   ]
