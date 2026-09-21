@@ -119,11 +119,16 @@ async function getFrameId(targetWindow) {
   return promise;
 }
 
-window.addEventListener('toolactivated', ({ toolName }) => {
+// TODO: Remove when window.ontoolactivated and window.ontoolcancel are removed in Chrome Stable.
+const targetFor = (type, listener, options) =>
+  (`on${type}` in (document.modelContext ?? {}) ? document.modelContext : window)
+    .addEventListener(type, listener, options);
+
+targetFor('toolactivated', ({ toolName }) => {
   console.debug(`[WebMCP] Tool "${toolName}" started execution.`);
 });
 
-window.addEventListener('toolcancel', ({ toolName }) => {
+targetFor('toolcancel', ({ toolName }) => {
   console.debug(`[WebMCP] Tool "${toolName}" execution is cancelled.`);
 });
 
