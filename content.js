@@ -87,9 +87,9 @@ async function listTools(fromOrigins) {
     tools.push({
       description: tool.description,
       inputSchema,
-      readOnlyHint: tool.annotations?.readOnlyHint ? '✓' : undefined,
-      untrustedContentHint: tool.annotations?.untrustedContentHint ? '✓' : undefined,
-      consequentialHint: tool.annotations?.consequentialHint ? '✓' : undefined,
+      annotations: Object.keys(tool.annotations || {})
+        .filter((k) => tool.annotations[k])
+        .join(', '),
       name: tool.name,
       frameId,
     });
@@ -119,11 +119,16 @@ async function getFrameId(targetWindow) {
   return promise;
 }
 
-window.addEventListener('toolactivated', ({ toolName }) => {
+// TODO: Remove when window.ontoolactivated and window.ontoolcancel are removed in Chrome Stable.
+const targetFor = (type, listener, options) =>
+  (`on${type}` in (document.modelContext ?? {}) ? document.modelContext : window)
+    .addEventListener(type, listener, options);
+
+targetFor('toolactivated', ({ toolName }) => {
   console.debug(`[WebMCP] Tool "${toolName}" started execution.`);
 });
 
-window.addEventListener('toolcancel', ({ toolName }) => {
+targetFor('toolcancel', ({ toolName }) => {
   console.debug(`[WebMCP] Tool "${toolName}" execution is cancelled.`);
 });
 

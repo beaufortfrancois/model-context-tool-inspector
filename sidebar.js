@@ -41,7 +41,7 @@ const suggestUserPromptCheckbox = document.getElementById('suggestUserPromptChec
   }
 })();
 
-let currentTools;
+let currentTools = [];
 
 let userPromptPendingId = 0;
 let lastSuggestedUserPrompt = '';
@@ -83,14 +83,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type }, sende
   executeBtn.disabled = false;
   copyToClipboard.hidden = false;
 
-  const KEYS = [
-    'description',
-    'inputSchema',
-    'readOnlyHint',
-    'untrustedContentHint',
-    'consequentialHint',
-    'name',
-  ];
+  const KEYS = ['description', 'inputSchema', 'annotations', 'name'];
   const keys = KEYS.filter((key) => tools.some((tool) => key in tool));
   keys.forEach((key) => {
     const th = document.createElement('th');
@@ -442,7 +435,7 @@ function getConfig() {
     'CRITICAL RULE: Do not try to use other tools than the available ones.',
   ];
 
-  const functionDeclarations = (currentTools || []).map((tool) => {
+  const functionDeclarations = currentTools.map((tool) => {
     return {
       name: `_${tool.frameId}_${tool.name}`,
       description: tool.description,

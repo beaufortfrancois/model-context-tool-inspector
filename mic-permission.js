@@ -22,6 +22,7 @@ async function requestPermission() {
     askBtn.style.display = 'none';
 
     console.log('[WebMCP] Permission granted successfully.');
+    chrome.runtime.sendMessage({ type: 'mic-permission-granted' });
 
     // Close automatically after a short delay
     setTimeout(() => window.close(), 1000);

@@ -181,6 +181,14 @@ let updateToolsTimeout = null;
 let lastToolsHash = null;
 
 export async function initGeminiLive(params) {
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'mic-permission-granted') {
+      if (!liveSession && lastStartParams) {
+        startLive(lastStartParams);
+      }
+    }
+  });
+
   params.micBtn.onclick = async () => {
     if (!localStorage.apiKey) {
       params.apiKeyBtn.click();
@@ -190,7 +198,7 @@ export async function initGeminiLive(params) {
       stopLive(params.micBtn);
     } else {
       lastStartParams = params;
-      await startLive(params);
+      startLive(params);
     }
   };
 }
@@ -304,20 +312,8 @@ async function startLive({
             (async () => {
               const responses = [];
               for (const fc of fcs) {
-                let toolName = fc.name;
-                let frameId = 0;
-                if (toolName.startsWith('_')) {
-                  try {
-                    const parts = toolName.split(/_(.*)/s)[1].split(/_(.*)/s);
-                    frameId = parseInt(parts[0]) || 0;
-                    toolName = parts[1] || toolName;
-                  } catch {}
-                } else {
-                  const tool = getTools()?.find((t) => t.name === toolName);
-                  if (tool?.frameId !== undefined) {
-                    frameId = tool.frameId;
-                  }
-                }
+                let [frameId, toolName] = fc.name.split(/_(.*)/s)[1].split(/_(.*)/s);
+                frameId = parseInt(frameId);
                 const inputArgs = JSON.stringify(fc.args);
                 logPrompt(`AI calling tool "${toolName}" with ${inputArgs}`);
                 try {
@@ -327,23 +323,23 @@ async function startLive({
                     name: fc.name,
                     response: { result: result === undefined ? null : result },
                   });
-                  if (liveSession) {
-                    liveSession.sendToolResponse({ functionResponses: [{
+                  liveSession?.sendToolResponse({
+                    functionResponses: [{
                       id: fc.id,
                       name: fc.name,
                       response: { result: result === undefined ? null : result },
-                    }] });
-                  }
+                    }],
+                  });
                   logPrompt(`Tool "${toolName}" result: ${result}`);
                 } catch (e) {
                   responses.push({ id: fc.id, name: fc.name, response: { error: e.message } });
-                  if (liveSession) {
-                    liveSession.sendToolResponse({ functionResponses: [{
+                  liveSession?.sendToolResponse({
+                    functionResponses: [{
                       id: fc.id,
                       name: fc.name,
                       response: { error: e.message },
-                    }] });
-                  }
+                    }],
+                  });
                   logPrompt(`⚠️ Error executing tool "${toolName}": ${e.message}`);
                 }
               }
