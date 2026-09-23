@@ -4,7 +4,7 @@
   "description": "Inspect, monitor, and execute WebMCP tools manually or with Gemini",
   "version": "1.9.16",
   "minimum_chrome_version": "150.0.7861.0",
-  "permissions": ["sidePanel", "activeTab", "scripting", "webNavigation"],
+  "permissions": ["sidePanel", "activeTab", "scripting", "webNavigation", "offscreen"],
   "host_permissions": ["<all_urls>"],
   "update_url": "https://clients2.google.com/service/update2/crx",
   "action": {},

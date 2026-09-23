@@ -4,6 +4,7 @@
  */
 
 import { GoogleGenAI } from './js-genai.js';
+import { initGeminiLive, updateLiveTools } from './gemini-live.js';
 import { getAllFrameOrigins } from './utils.js';
 
 const statusDiv = document.getElementById('status');
@@ -23,6 +24,7 @@ const resetBtn = document.getElementById('resetBtn');
 const apiKeyBtn = document.getElementById('apiKeyBtn');
 const promptResults = document.getElementById('promptResults');
 const advancedSection = document.getElementById('advancedSection');
+const micBtn = document.getElementById('micBtn');
 const suggestUserPromptCheckbox = document.getElementById('suggestUserPromptCheckbox');
 
 // First, request list of tools from content script living in top-level frame.
@@ -39,7 +41,7 @@ const suggestUserPromptCheckbox = document.getElementById('suggestUserPromptChec
   }
 })();
 
-let currentTools;
+let currentTools = [];
 
 let userPromptPendingId = 0;
 let lastSuggestedUserPrompt = '';
@@ -49,7 +51,7 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type }, sende
   // Internal signals (e.g. contentScriptReady) are handled elsewhere.
   if (type) return;
   if (sender.frameId && sender.frameId !== 0) return;
-
+  if (!message && !tools) return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (sender.tab && sender.tab.id !== tab.id) return;
 
@@ -113,7 +115,10 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type }, sende
   });
   updateDefaultValueForInputArgs();
 
-  if (haveNewTools) suggestUserPrompt();
+  if (haveNewTools) {
+    suggestUserPrompt();
+    updateLiveTools();
+  }
 });
 
 tbody.ondblclick = () => {
@@ -391,6 +396,17 @@ function updateDefaultValueForInputArgs() {
   const template = generateTemplateFromSchema(JSON.parse(inputSchema));
   inputArgsText.value = JSON.stringify(template, '', ' ');
 }
+
+// Initialize Gemini Live
+initGeminiLive({
+  micBtn,
+  apiKeyBtn,
+  getTools: () => currentTools,
+  getConfig,
+  executeTool,
+  logPrompt,
+  addToTrace: (o) => trace.push(o),
+});
 
 // Utils
 
