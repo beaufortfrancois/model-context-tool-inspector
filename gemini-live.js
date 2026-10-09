@@ -328,11 +328,10 @@ async function startLive(
             toolCallInProgress = true;
             (async () => {
               const responses = [];
-              for (const fc of fcs) {
-                let [frameId, toolName] = fc.name.split(/_(.*)/s)[1].split(/_(.*)/s);
+              for (const { id, name, args: inputArgs } of fcs) {
+                let [frameId, toolName] = name.split(/_(.*)/s)[1].split(/_(.*)/s);
                 frameId = parseInt(frameId);
-                const inputArgs = JSON.stringify(fc.args);
-                logPrompt(`AI calling tool "${toolName}" with ${inputArgs}`);
+                logPrompt(`AI calling tool "${toolName}" with ${JSON.stringify(inputArgs)}`);
                 let response;
                 try {
                   const result = await executeTool(tab.id, toolName, inputArgs, frameId);
@@ -342,8 +341,10 @@ async function startLive(
                   response = { error: e.message };
                   logPrompt(`⚠️ Error executing tool "${toolName}": ${e.message}`);
                 }
-                responses.push({ id: fc.id, name: fc.name, response });
-                requestToolCalls.push(`${toolName}(${inputArgs}) returned ${JSON.stringify(response)}`);
+                responses.push({ id, name, response });
+                requestToolCalls.push(
+                  `${toolName}(${JSON.stringify(inputArgs)}) returned ${JSON.stringify(response)}`,
+                );
               }
               toolCallInProgress = false;
               if (!lastStartParams) return; // Stopped while the tool ran.

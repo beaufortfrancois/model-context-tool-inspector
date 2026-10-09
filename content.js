@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-console.debug(`[WebMCP] Content script injected in ${window.location.href}`);
+console.debug(`[WebMCP] Content script injected in ${location.href}`);
 
 chrome.runtime.onMessage.addListener((message, _, reply) => {
   const { action, name, inputArgs, fromOrigins } = message;
@@ -16,7 +16,7 @@ chrome.runtime.onMessage.addListener((message, _, reply) => {
       document.modelContext.ontoolchange = debouncedListTools.bind(null, fromOrigins);
     }
     if (action == 'EXECUTE_TOOL') {
-      console.debug(`[WebMCP] Execute tool "${name}" with ${inputArgs} in ${window.location.href}`);
+      console.debug(`[WebMCP] Execute tool "${name}" with ${JSON.stringify(inputArgs)} in ${location.href}`);
       let targetFrame, loadPromise;
       // Check if this tool is associated with a form target
       const formTarget = document.querySelector(`form[toolname="${name}"]`)?.target;
@@ -33,20 +33,9 @@ chrome.runtime.onMessage.addListener((message, _, reply) => {
       // Execute the experimental tool
       document.modelContext
         .getTools()
-        .then(async (tools) => {
+        .then((tools) => {
           const tool = tools.find((t) => t.name === name && t.window === window);
-          let result;
-          try {
-            result = await document.modelContext.executeTool(tool, JSON.parse(inputArgs));
-          } catch (e) {
-            // TODO: Remove this when executeTool doesn't accept JSON stringified inputArgs anymore in Chrome Stable.
-            if (e.message.startsWith('Failed to parse input')) {
-              result = await document.modelContext.executeTool(tool, inputArgs);
-            } else {
-              throw e;
-            }
-          }
-          return result;
+          return document.modelContext.executeTool(tool, inputArgs);
         })
         .then(async (result) => {
           // If result is null and we have a target frame, wait for the frame to reload.
@@ -64,7 +53,7 @@ chrome.runtime.onMessage.addListener((message, _, reply) => {
       return true;
     }
     if (action == 'GET_CROSS_DOCUMENT_SCRIPT_TOOL_RESULT') {
-      console.debug(`[WebMCP] Get cross document script tool result in ${window.location.href}`);
+      console.debug(`[WebMCP] Get cross document script tool result in ${location.href}`);
       reply(document.querySelector('script[type="application/ld+json"]')?.textContent);
     }
   } catch ({ message }) {
@@ -82,11 +71,9 @@ async function listTools(fromOrigins) {
   let tools = [];
   for (const tool of await document.modelContext.getTools({ fromOrigins })) {
     const frameId = tool.window == window ? 0 : await getFrameId(tool.window);
-    const inputSchema =
-      typeof tool.inputSchema === 'string' ? tool.inputSchema : JSON.stringify(tool.inputSchema);
     tools.push({
       description: tool.description,
-      inputSchema,
+      inputSchema: tool.inputSchema,
       annotations: Object.keys(tool.annotations || {})
         .filter((k) => tool.annotations[k])
         .join(', '),
@@ -95,7 +82,7 @@ async function listTools(fromOrigins) {
     });
   }
   console.debug(`[WebMCP] Got ${tools.length} tools`, tools);
-  chrome.runtime.sendMessage({ tools, url: window.location.href });
+  chrome.runtime.sendMessage({ tools, url: location.href });
 }
 
 async function getFrameId(targetWindow) {

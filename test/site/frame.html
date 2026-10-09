@@ -12,7 +12,6 @@
   document.modelContext.registerTool({
     name: 'echo_frame',
     description: 'Returns a marker string from the iframe',
-    inputSchema: { type: 'object', properties: {} },
     async execute() {
       return 'hello from the iframe';
     },

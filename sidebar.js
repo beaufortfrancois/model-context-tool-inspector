@@ -100,7 +100,8 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type, tabId }
       const td = document.createElement('td');
       const pre = document.createElement('pre');
       try {
-        pre.textContent = JSON.stringify(JSON.parse(item[key]), '', '  ');
+        const value = typeof item[key] === 'object' ? item[key] : JSON.parse(item[key]);
+        pre.textContent = JSON.stringify(value, '', '  ');
         td.appendChild(pre);
       } catch (error) {
         td.textContent = item[key];
@@ -111,9 +112,6 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type, tabId }
 
     const option = document.createElement('option');
     option.textContent = `"${item.name}"${item.frameId !== 0 ? ` (${item.frameId})` : ''}`;
-    option.value = item.name;
-    option.dataset.inputSchema = item.inputSchema || '{}';
-    option.dataset.frameId = item.frameId;
     toolNames.appendChild(option);
   });
   updateDefaultValueForInputArgs();
@@ -132,7 +130,7 @@ copyAsScriptToolConfig.onclick = async () => {
 script_tools {
   name: ${JSON.stringify(tool.name)}
   description: ${JSON.stringify(tool.description || '')}
-  input_schema: ${JSON.stringify(tool.inputSchema || { type: 'object', properties: {} })}
+  input_schema: ${JSON.stringify(JSON.stringify(tool.inputSchema || { type: 'object', properties: {} }))}
 }`;
     })
     .join('\r\n');
@@ -140,15 +138,11 @@ script_tools {
 };
 
 copyAsJSON.onclick = async () => {
-  const tools = currentTools.map((tool) => {
-    return {
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputSchema
-        ? JSON.parse(tool.inputSchema)
-        : { type: 'object', properties: {} },
-    };
-  });
+  const tools = currentTools.map(({ name, description, inputSchema }) => ({
+    name,
+    description,
+    inputSchema,
+  }));
   await navigator.clipboard.writeText(JSON.stringify(tools, '', '  '));
 };
 
@@ -272,11 +266,10 @@ async function promptAI() {
       finalResponseGiven = true;
     } else {
       const toolResponses = [];
-      for (const { name: toolName, args } of functionCalls) {
+      for (const { name: toolName, args: inputArgs } of functionCalls) {
         let [frameId, name] = toolName.split(/_(.*)/s)[1].split(/_(.*)/s);
         frameId = parseInt(frameId);
-        const inputArgs = JSON.stringify(args);
-        logPrompt(`AI calling tool "${name}" with ${inputArgs}`);
+        logPrompt(`AI calling tool "${name}" with ${JSON.stringify(inputArgs)}`);
         try {
           const result = await executeTool(tab.id, name, inputArgs, frameId);
           toolResponses.push({ functionResponse: { name: toolName, response: { result } } });
@@ -321,12 +314,13 @@ traceBtn.onclick = async () => {
 executeBtn.onclick = async () => {
   toolResults.textContent = '';
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const name = toolNames.selectedOptions[0].value;
-  const inputArgs = inputArgsText.value;
-  const frameId = parseInt(toolNames.selectedOptions[0].dataset.frameId);
-  toolResults.textContent = await executeTool(tab.id, name, inputArgs, frameId).catch(
-    (error) => `⚠️ Error: "${error}"`,
-  );
+  const { name, frameId } = currentTools[toolNames.selectedIndex];
+  try {
+    const inputArgs = JSON.parse(inputArgsText.value);
+    toolResults.textContent = await executeTool(tab.id, name, inputArgs, frameId);
+  } catch (error) {
+    toolResults.textContent = `⚠️ Error: "${error}"`;
+  }
 };
 
 async function executeTool(tabId, name, inputArgs, frameId) {
@@ -392,8 +386,8 @@ async function executeTool(tabId, name, inputArgs, frameId) {
 toolNames.onchange = updateDefaultValueForInputArgs;
 
 function updateDefaultValueForInputArgs() {
-  const inputSchema = toolNames.selectedOptions[0].dataset.inputSchema || '{}';
-  const template = generateTemplateFromSchema(JSON.parse(inputSchema));
+  const { inputSchema } = currentTools[toolNames.selectedIndex] ?? {};
+  const template = inputSchema ? generateTemplateFromSchema(inputSchema) : {};
   inputArgsText.value = JSON.stringify(template, '', ' ');
 }
 
@@ -435,15 +429,13 @@ function getConfig() {
     'CRITICAL RULE: Do not try to use other tools than the available ones.',
   ];
 
-  const functionDeclarations = currentTools.map((tool) => {
-    return {
-      name: `_${tool.frameId}_${tool.name}`,
-      description: tool.description,
-      parametersJsonSchema: tool.inputSchema
-        ? JSON.parse(tool.inputSchema)
-        : { type: 'object', properties: {} },
-    };
-  });
+  const functionDeclarations = currentTools.map(
+    ({ frameId, name, description, inputSchema: parametersJsonSchema }) => ({
+      name: `_${frameId}_${name}`,
+      description,
+      parametersJsonSchema,
+    }),
+  );
   return { systemInstruction, tools: [{ functionDeclarations }] };
 }
 

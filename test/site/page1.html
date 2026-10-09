@@ -36,7 +36,6 @@
   document.modelContext.registerTool({
     name: 'go_checkout',
     description: 'Navigates to the checkout page',
-    inputSchema: { type: 'object', properties: {} },
     execute() {
       location.href = '/page2.html';
       // Never resolves: the document unloads mid-execution.
