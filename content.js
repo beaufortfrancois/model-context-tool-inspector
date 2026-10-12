@@ -11,6 +11,7 @@ chrome.runtime.onMessage.addListener((message, _, reply) => {
     if (!document.modelContext) {
       throw new Error('Error: You must run Chrome with the "WebMCP for testing" flag enabled.');
     }
+    addToolEventListeners();
     if (action == 'LIST_TOOLS') {
       debouncedListTools(fromOrigins);
       document.modelContext.ontoolchange = debouncedListTools.bind(null, fromOrigins);
@@ -114,13 +115,22 @@ const targetFor = (type, listener, options) => {
     .addEventListener(type, listener, options);
 };
 
-targetFor('toolactivated', ({ toolName }) => {
-  console.debug(`[WebMCP] Tool "${toolName}" started execution.`);
-});
+// Only touch document.modelContext once the inspector messages this frame.
+// Eager access at document_start can crash unrelated frames that later probe
+// a detached document's modelContext.
+let toolEventListenersAdded = false;
+function addToolEventListeners() {
+  if (toolEventListenersAdded) return;
+  toolEventListenersAdded = true;
 
-targetFor('toolcancel', ({ toolName }) => {
-  console.debug(`[WebMCP] Tool "${toolName}" execution is cancelled.`);
-});
+  targetFor('toolactivated', ({ toolName }) => {
+    console.debug(`[WebMCP] Tool "${toolName}" started execution.`);
+  });
+
+  targetFor('toolcancel', ({ toolName }) => {
+    console.debug(`[WebMCP] Tool "${toolName}" execution is cancelled.`);
+  });
+}
 
 if (window === window.top) {
   chrome.runtime.sendMessage({ type: 'contentScriptReady' }).catch(() => {});
