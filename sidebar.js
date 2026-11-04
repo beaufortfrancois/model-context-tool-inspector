@@ -98,6 +98,9 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type, tabId }
     const row = document.createElement('tr');
     keys.forEach((key) => {
       const td = document.createElement('td');
+      row.appendChild(td);
+      // Leave the cell empty for tools that don't have this field.
+      if (item[key] == null) return;
       const pre = document.createElement('pre');
       try {
         const value = typeof item[key] === 'object' ? item[key] : JSON.parse(item[key]);
@@ -106,7 +109,6 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type, tabId }
       } catch (error) {
         td.textContent = item[key];
       }
-      row.appendChild(td);
     });
     tbody.appendChild(row);
 
