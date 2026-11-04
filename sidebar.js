@@ -86,8 +86,8 @@ chrome.runtime.onMessage.addListener(async ({ message, tools, url, type, tabId }
   executeBtn.disabled = false;
   copyToClipboard.hidden = false;
 
-  const KEYS = ['description', 'inputSchema', 'annotations', 'name'];
-  const keys = KEYS.filter((key) => tools.some((tool) => key in tool));
+  const KEYS = ['description', 'inputSchema', 'outputSchema', 'annotations', 'name'];
+  const keys = KEYS.filter((key) => tools.some((tool) => key in tool && tool[key]));
   keys.forEach((key) => {
     const th = document.createElement('th');
     th.textContent = key;
@@ -138,10 +138,11 @@ script_tools {
 };
 
 copyAsJSON.onclick = async () => {
-  const tools = currentTools.map(({ name, description, inputSchema }) => ({
+  const tools = currentTools.map(({ name, description, inputSchema, outputSchema }) => ({
     name,
     description,
     inputSchema,
+    outputSchema,
   }));
   await navigator.clipboard.writeText(JSON.stringify(tools, '', '  '));
 };
@@ -430,10 +431,17 @@ function getConfig() {
   ];
 
   const functionDeclarations = currentTools.map(
-    ({ frameId, name, description, inputSchema: parametersJsonSchema }) => ({
+    ({
+      frameId,
+      name,
+      description,
+      inputSchema: parametersJsonSchema,
+      outputSchema: responseJsonSchema,
+    }) => ({
       name: `_${frameId}_${name}`,
       description,
       parametersJsonSchema,
+      responseJsonSchema,
     }),
   );
   return { systemInstruction, tools: [{ functionDeclarations }] };

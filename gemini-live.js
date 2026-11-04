@@ -201,7 +201,9 @@ let userRequestDone = true;
 let requestToolCalls = [];
 
 function toolsHash(tools) {
-  return JSON.stringify((tools || []).map((t) => [t.frameId, t.name, t.inputSchema]));
+  return JSON.stringify(
+    (tools || []).map((t) => [t.frameId, t.name, t.inputSchema, t.outputSchema]),
+  );
 }
 
 export async function initGeminiLive(params) {
