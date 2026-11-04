@@ -74,6 +74,7 @@ async function listTools(fromOrigins) {
     tools.push({
       description: tool.description,
       inputSchema: tool.inputSchema,
+      outputSchema: tool.outputSchema,
       annotations: Object.keys(tool.annotations || {})
         .filter((k) => tool.annotations[k])
         .join(', '),
