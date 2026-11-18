@@ -34,7 +34,7 @@ chrome.runtime.onMessage.addListener((message, _, reply) => {
       document.modelContext
         .getTools()
         .then((tools) => {
-          const tool = tools.find((t) => t.name === name && t.window === window);
+          const tool = tools.find((t) => t.name === name && toolSource(t) === window);
           return document.modelContext.executeTool(tool, inputArgs);
         })
         .then(async (result) => {
@@ -70,7 +70,8 @@ function debouncedListTools(fromOrigins) {
 async function listTools(fromOrigins) {
   let tools = [];
   for (const tool of await document.modelContext.getTools({ fromOrigins })) {
-    const frameId = tool.window == window ? 0 : await getFrameId(tool.window);
+    const source = toolSource(tool);
+    const frameId = source == window ? 0 : await getFrameId(source);
     tools.push({
       description: tool.description,
       inputSchema: tool.inputSchema,
@@ -106,6 +107,9 @@ async function getFrameId(targetWindow) {
   targetWindow.postMessage({ action: 'GET_FRAME_ID' }, '*');
   return promise;
 }
+
+// TODO: Remove when Tool's `window` attribute is renamed to `source` in Chrome Stable.
+const toolSource = (tool) => tool.source ?? tool.window;
 
 // TODO: Remove when window.ontoolactivated and window.ontoolcancel are removed in Chrome Stable.
 const targetFor = (type, listener, options) => {
