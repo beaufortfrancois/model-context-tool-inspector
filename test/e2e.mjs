@@ -115,6 +115,21 @@ function watch(page, label) {
 }
 context.on('page', (p) => watch(p, 'spawned'));
 
+// Unrelated frames must not have WebMCP initialized just because the
+// inspector is installed. Chrome 155 kills the renderer when such a frame
+// later reads modelContext on a detached document (bad-message reason 346).
+const detachedDemo = await context.newPage();
+let detachedCrashed = false;
+detachedDemo.on('crash', () => { detachedCrashed = true; });
+try {
+  await detachedDemo.goto(`${BASE}/detached-document.html`);
+  await detachedDemo.frameLocator('iframe').locator('#probe-complete').waitFor();
+} catch (error) {
+  check('detached-document probe completes', false, error.message);
+}
+check('detached-document probe in iframe does not crash renderer', !detachedCrashed);
+await detachedDemo.close().catch(() => {});
+
 const demo = context.pages()[0];
 watch(demo, 'demo');
 await demo.goto(`${BASE}/page1.html`);

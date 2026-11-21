@@ -1,0 +1,9 @@
+<!doctype html>
+<title>Partytown-style detached document probe</title>
+<script>
+  // Partytown probes DOM properties on a detached document. Eager WebMCP
+  // initialization by an extension in this frame causes duplicate binding.
+  const detached = document.implementation.createHTMLDocument();
+  void detached.modelContext;
+</script>
+<p id="probe-complete">Detached document inspected</p>
