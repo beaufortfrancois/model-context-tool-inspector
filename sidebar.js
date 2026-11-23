@@ -26,6 +26,7 @@ const promptResults = document.getElementById('promptResults');
 const advancedSection = document.getElementById('advancedSection');
 const micBtn = document.getElementById('micBtn');
 const suggestUserPromptCheckbox = document.getElementById('suggestUserPromptCheckbox');
+const toolRetrievalCheckbox = document.getElementById('toolRetrievalCheckbox');
 
 // First, request list of tools from content script living in top-level frame.
 (async () => {
@@ -152,6 +153,9 @@ copyAsJSON.onclick = async () => {
 // Interact with the page
 
 let genAI, chat;
+// Tool retrieval runs on the Interactions API, which keeps the conversation
+// history server-side and chains turns by interaction id.
+let previousInteractionId;
 
 async function initGenAI() {
   let env;
@@ -167,13 +171,32 @@ async function initGenAI() {
     localStorage.model = 'gemini-3.1-flash-lite';
   }
   localStorage.model ??= env?.model || 'gemini-3.6-flash';
-  genAI = localStorage.apiKey ? new GoogleGenAI({ apiKey: localStorage.apiKey }) : undefined;
+  genAI = localStorage.apiKey
+    ? new GoogleGenAI({ apiKey: localStorage.apiKey, apiVersion: 'v1beta' })
+    : undefined;
   promptBtn.disabled = !localStorage.apiKey;
   resetBtn.disabled = !localStorage.apiKey;
   apiKeyBtn.textContent = localStorage.apiKey ? 'Update Gemini API key' : 'Set Gemini API key';
 
   suggestUserPromptCheckbox.checked = localStorage.suggestUserPrompt !== 'false';
+  updateToolRetrievalCheckbox();
 }
+
+// Tool retrieval is supported on Gemini 3.6 and later models only.
+function supportsToolRetrieval(model) {
+  const version = model?.match(/^gemini-(\d+(?:\.\d+)?)/)?.[1];
+  return parseFloat(version) >= 3.6;
+}
+
+function isToolRetrievalEnabled() {
+  return localStorage.toolRetrieval === 'true' && supportsToolRetrieval(localStorage.model);
+}
+
+function updateToolRetrievalCheckbox() {
+  toolRetrievalCheckbox.disabled = !supportsToolRetrieval(localStorage.model);
+  toolRetrievalCheckbox.checked = isToolRetrievalEnabled();
+}
+
 await initGenAI();
 
 document.querySelectorAll('input[name="model"]').forEach((radio) => {
@@ -181,6 +204,8 @@ document.querySelectorAll('input[name="model"]').forEach((radio) => {
   radio.onclick = () => {
     localStorage.model = radio.value;
     chat = undefined;
+    previousInteractionId = undefined;
+    updateToolRetrievalCheckbox();
     advancedSection.hidePopover();
   };
 });
@@ -188,6 +213,14 @@ document.querySelectorAll('input[name="model"]').forEach((radio) => {
 suggestUserPromptCheckbox.onchange = () => {
   localStorage.suggestUserPrompt = suggestUserPromptCheckbox.checked;
   if (localStorage.suggestUserPrompt) suggestUserPrompt();
+  advancedSection.hidePopover();
+};
+
+toolRetrievalCheckbox.onchange = () => {
+  localStorage.toolRetrieval = toolRetrievalCheckbox.checked;
+  // Switching APIs starts a new conversation.
+  chat = undefined;
+  previousInteractionId = undefined;
   advancedSection.hidePopover();
 };
 
@@ -244,12 +277,18 @@ let trace = [];
 async function promptAI() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-  chat ??= genAI.chats.create({ model: localStorage.model });
-
   const message = userPromptText.value;
   userPromptText.value = '';
   lastSuggestedUserPrompt = '';
   promptResults.textContent += `User prompt: "${message}"\n`;
+
+  if (isToolRetrievalEnabled()) {
+    await promptAIWithToolRetrieval(tab, message);
+    return;
+  }
+
+  chat ??= genAI.chats.create({ model: localStorage.model });
+
   const sendMessageParams = { message, config: getConfig() };
   trace.push({ userPrompt: sendMessageParams });
   let currentResult = await chat.sendMessage(sendMessageParams);
@@ -270,8 +309,7 @@ async function promptAI() {
     } else {
       const toolResponses = [];
       for (const { name: toolName, args: inputArgs } of functionCalls) {
-        let [frameId, name] = toolName.split(/_(.*)/s)[1].split(/_(.*)/s);
-        frameId = parseInt(frameId);
+        const { frameId, name } = parseToolName(toolName);
         logPrompt(`AI calling tool "${name}" with ${JSON.stringify(inputArgs)}`);
         try {
           const result = await executeTool(tab.id, name, inputArgs, frameId);
@@ -292,8 +330,112 @@ async function promptAI() {
   }
 }
 
+// Tool retrieval: every WebMCP tool is declared with `defer_loading`, so only
+// its name and description are sent upfront. Gemini searches for the tools it
+// needs and loads their schemas on demand, all within the same request.
+// See https://ai.google.dev/gemini-api/docs/tool-retrieval
+async function promptAIWithToolRetrieval(tab, message) {
+  let input = message;
+
+  while (true) {
+    const params = {
+      model: localStorage.model,
+      input,
+      system_instruction: getSystemInstruction().join('\n'),
+      // Tools aren't preserved across chained interactions, and `tool_search`
+      // must be present on every request that defers tools.
+      tools: getInteractionTools(),
+      previous_interaction_id: previousInteractionId,
+    };
+    trace.push({ interactionRequest: params });
+    const interaction = await genAI.interactions.create(params);
+    trace.push({ interaction });
+    previousInteractionId = interaction.id;
+
+    const functionResults = [];
+    // Check steps for function calls rather than relying on `status` alone, as
+    // it isn't always `requires_action` when a function call is returned.
+    for (const step of interaction.steps ?? []) {
+      if (step.type === 'tool_search_call') {
+        const names = step.arguments?.function_names;
+        const query = Array.isArray(names)
+          ? names.map((n) => `"${parseToolName(n).name}"`).join(', ')
+          : JSON.stringify(step.arguments);
+        logPrompt(`AI searching tools: ${query}`);
+      } else if (step.type === 'tool_search_result') {
+        const names = (Array.isArray(step.result) ? step.result : [])
+          .filter((tool) => tool?.name)
+          .map((tool) => `"${parseToolName(tool.name).name}"`);
+        logPrompt(`Tools loaded: ${names.length ? names.join(', ') : 'none'}`);
+      } else if (step.type === 'function_call') {
+        const { frameId, name } = parseToolName(step.name);
+        const inputArgs = step.arguments ?? {};
+        logPrompt(`AI calling tool "${name}" with ${JSON.stringify(inputArgs)}`);
+        let text;
+        try {
+          const result = await executeTool(tab.id, name, inputArgs, frameId);
+          text = typeof result === 'string' ? result : JSON.stringify(result);
+          logPrompt(`Tool "${name}" result: ${text}`);
+        } catch (e) {
+          logPrompt(`⚠️ Error executing tool "${name}": ${e.message}`);
+          text = JSON.stringify({ error: e.message });
+        }
+        functionResults.push({
+          type: 'function_result',
+          name: step.name,
+          call_id: step.id,
+          result: [{ type: 'text', text: text ?? '' }],
+        });
+      }
+    }
+
+    if (functionResults.length === 0) {
+      const text = getInteractionText(interaction);
+      if (!text) {
+        logPrompt(`⚠️ AI response has no text: ${JSON.stringify(interaction.steps)}\n`);
+      } else {
+        logPrompt(`AI result: ${text.trim()}\n`);
+      }
+      return;
+    }
+    input = functionResults;
+  }
+}
+
+function getInteractionTools() {
+  return [
+    { type: 'tool_search' },
+    ...currentTools.map(({ frameId, name, description, inputSchema }) => ({
+      type: 'function',
+      name: `_${frameId}_${name}`,
+      description,
+      // Unloaded schemas aren't billed, but the model can't call a deferred
+      // tool without parameters, so always send a full schema.
+      parameters: inputSchema || { type: 'object', properties: {} },
+      defer_loading: true,
+    })),
+  ];
+}
+
+function getInteractionText(interaction) {
+  if (interaction.output_text) return interaction.output_text;
+  return (interaction.steps ?? [])
+    .filter((step) => step.type === 'model_output')
+    .flatMap((step) => step.content ?? [])
+    .filter((content) => content.type === 'text')
+    .map((content) => content.text)
+    .join('');
+}
+
+// Tool names are prefixed with their frame id, e.g. `_0_searchFlights`.
+function parseToolName(toolName) {
+  const [frameId, name] = toolName.split(/_(.*)/s)[1].split(/_(.*)/s);
+  return { frameId: parseInt(frameId), name };
+}
+
 resetBtn.onclick = () => {
   chat = undefined;
+  previousInteractionId = undefined;
   trace = [];
   userPromptText.value = '';
   lastSuggestedUserPrompt = '';
@@ -422,8 +564,8 @@ function getFormattedDate() {
   });
 }
 
-function getConfig() {
-  const systemInstruction = [
+function getSystemInstruction() {
+  return [
     'You are an assistant embedded in a browser tab.',
     'User prompts typically refer to the current tab unless stated otherwise.',
     'Use the provided tools to query page content when you need it.',
@@ -431,6 +573,10 @@ function getConfig() {
     'CRITICAL RULE: Whenever the user provides a relative date (e.g., "next Monday", "tomorrow", "in 3 days"),  you must calculate the exact calendar date based on today\'s date.',
     'CRITICAL RULE: Do not try to use other tools than the available ones.',
   ];
+}
+
+function getConfig() {
+  const systemInstruction = getSystemInstruction();
 
   const functionDeclarations = currentTools.map(
     ({
